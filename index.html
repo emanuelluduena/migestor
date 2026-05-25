@@ -155,12 +155,32 @@ tbody td{padding:9px 13px;vertical-align:middle;}
     <div class="ptit">📦 Artículos</div>
     <div class="brow">
       <button class="btn bv" onclick="abrirArt()">➕ Nuevo <small style="opacity:.7">[F2]</small></button>
-      <div class="bus"><span>🔍</span><input id="bart" placeholder="Buscar..." oninput="filtArt()"></div>
-      <select class="btn bg" id="fcat" onchange="filtArt()" style="padding:7px 11px"><option value="">Todas las categorías</option></select>
-      <span class="hint">Ins=Nuevo · F2=Editar sel.</span>
+      <div class="bus"><span>🔍</span><input id="bart" placeholder="Buscar por nombre o código..." oninput="filtArt()"></div>
+      <select class="btn bg" id="fcat" onchange="filtArt()" style="padding:7px 11px">
+        <option value="">Todas las categorías</option>
+      </select>
+      <select class="btn bg" id="fprov" onchange="filtArt()" style="padding:7px 11px">
+        <option value="">Todos los proveedores</option>
+      </select>
+      <select class="btn bg" id="fstk" onchange="filtArt()" style="padding:7px 11px">
+        <option value="">Todo el stock</option>
+        <option value="bajo">⚠️ Stock bajo</option>
+        <option value="sin">🔴 Sin stock</option>
+        <option value="libre">📦 Sin control de stock</option>
+      </select>
+      <button class="btn bg bsm" onclick="limpiarFiltros()">✕ Limpiar filtros</button>
+    </div>
+    <div class="brow" style="margin-top:-8px">
+      <label style="font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer">
+        <input type="checkbox" id="sel-all" onchange="selTodos(this)"> Seleccionar todos
+      </label>
+      <span id="sel-count" style="font-size:12px;color:var(--gris)">0 seleccionados</span>
+      <button class="btn br bsm" onclick="borrarSeleccionados()">🗑️ Borrar seleccionados</button>
+      <button class="btn bg bsm" onclick="editarSeleccionado()">✏️ Editar seleccionado</button>
+      <span class="hint" style="margin-left:auto">F2=Nuevo · seleccioná y usá los botones</span>
     </div>
     <div class="twrap"><table>
-      <thead><tr><th>Cód.</th><th>Nombre</th><th>Categoría</th><th>Costo</th><th>L1</th><th>L2</th><th>L3</th><th>Mayor</th><th>C.Mayor</th><th>Stock</th><th>Control</th><th>Acciones</th></tr></thead>
+      <thead><tr><th style="width:30px"></th><th>Cód.</th><th>Nombre</th><th>Categoría</th><th>Costo</th><th>L1</th><th>L2</th><th>L3</th><th>Mayor</th><th>C.Mayor</th><th>Stock</th><th>Control</th><th>Acciones</th></tr></thead>
       <tbody id="tart"></tbody>
     </table></div>
   </div>
@@ -732,23 +752,67 @@ function renderInicio() {
 // ═══════════════════════ ARTÍCULOS ═══════════════════════
 function renderArts(lista) {
   const arts = lista || DB.arts;
-  const cats = [...new Set(DB.arts.map(a=>a.cat).filter(Boolean))];
+  const cats = [...new Set(DB.arts.map(a=>a.cat).filter(Boolean))].sort();
+  const provs = [...new Set(DB.arts.map(a=>{const p=DB.provs.find(x=>x.id==a.provid);return p?p.nom:'';}).filter(Boolean))].sort();
   const dl = document.getElementById('lcats');
   if(dl) dl.innerHTML = cats.map(c=>'<option value="'+c+'">').join('');
   const fc = document.getElementById('fcat');
   if(fc) { const cv=fc.value; fc.innerHTML='<option value="">Todas las categorías</option>'+cats.map(c=>'<option value="'+c+'" '+(c===cv?'selected':'')+'>'+c+'</option>').join(''); }
+  const fp = document.getElementById('fprov');
+  if(fp) { const cv=fp.value; fp.innerHTML='<option value="">Todos los proveedores</option>'+provs.map(p=>'<option value="'+p+'" '+(p===cv?'selected':'')+'>'+p+'</option>').join(''); }
   const tb = document.getElementById('tart');
-  if(!arts.length) { tb.innerHTML='<tr><td colspan="12"><div class="vacio"><div class="vi">📦</div><p>Sin artículos</p></div></td></tr>'; return; }
+  if(!arts.length) { tb.innerHTML='<tr><td colspan="13"><div class="vacio"><div class="vi">📦</div><p>Sin artículos que coincidan</p></div></td></tr>'; actualizarContador(); return; }
   tb.innerHTML = arts.map(a=>{
     const l1=fmt(pxc(a.cos,a.u1)),l2=fmt(pxc(a.cos,a.u2)),l3=fmt(pxc(a.cos,a.u3)),lm=fmt(pxc(a.cos,a.um));
     const sb=a.stk<=0?'br2':a.stk<=a.stkmin?'ba2':'bv2';
-    return '<tr><td><span class="bdg bv2">'+a.cod+'</span></td><td><strong>'+a.nom+'</strong></td><td>'+(a.cat||'-')+'</td><td>'+fmt(a.cos)+'</td><td>'+l1+'</td><td>'+l2+'</td><td>'+l3+'</td><td class="tt2">'+lm+'</td><td>≥'+a.cm+'</td><td><span class="bdg '+sb+'">'+a.stk+' '+a.uni+'</span></td><td><span class="bdg '+(a.usastk==='no'?'bt2':'bv2')+'">'+(a.usastk==='no'?'Libre':'Con stk')+'</span></td><td style="white-space:nowrap"><button class="btn bg bsm" onclick="editArt('+a.id+')">✏️</button> <button class="btn br bsm" onclick="delArt('+a.id+')">🗑️</button></td></tr>';
+    return '<tr><td><input type="checkbox" class="art-chk" value="'+a.id+'" onchange="actualizarContador()"></td><td><span class="bdg bv2">'+a.cod+'</span></td><td><strong>'+a.nom+'</strong></td><td>'+(a.cat||'-')+'</td><td>'+fmt(a.cos)+'</td><td>'+l1+'</td><td>'+l2+'</td><td>'+l3+'</td><td class="tt2">'+lm+'</td><td>>='+a.cm+'</td><td><span class="bdg '+sb+'">'+a.stk+' '+a.uni+'</span></td><td><span class="bdg '+(a.usastk==='no'?'bt2':'bv2')+'">'+(a.usastk==='no'?'Libre':'Con stk')+'</span></td><td style="white-space:nowrap"><button class="btn bg bsm" onclick="editArt('+a.id+')">✏️</button> <button class="btn br bsm" onclick="delArt('+a.id+')">🗑️</button></td></tr>';
   }).join('');
+  actualizarContador();
+}
+function actualizarContador() {
+  const sel = document.querySelectorAll('.art-chk:checked').length;
+  const cnt = document.getElementById('sel-count');
+  if(cnt) cnt.textContent = sel + ' seleccionado' + (sel!==1?'s':'');
+}
+function selTodos(cb) {
+  document.querySelectorAll('.art-chk').forEach(function(c){c.checked=cb.checked;});
+  actualizarContador();
+}
+function limpiarFiltros() {
+  document.getElementById('bart').value='';
+  document.getElementById('fcat').value='';
+  document.getElementById('fprov').value='';
+  document.getElementById('fstk').value='';
+  renderArts();
+}
+function borrarSeleccionados() {
+  const ids = [...document.querySelectorAll('.art-chk:checked')].map(function(c){return parseInt(c.value);});
+  if(!ids.length){alert('Seleccioná al menos un artículo.');return;}
+  if(!confirm('Vas a borrar '+ids.length+' artículo'+(ids.length!==1?'s':'')+'. ¿Confirmás?'))return;
+  DB.arts = DB.arts.filter(function(a){return !ids.includes(a.id);});
+  saveDB(); filtArt();
+  alert(ids.length+' artículo'+(ids.length!==1?'s':'')+' eliminado'+(ids.length!==1?'s':'')+'.');
+}
+function editarSeleccionado() {
+  const ids = [...document.querySelectorAll('.art-chk:checked')].map(function(c){return parseInt(c.value);});
+  if(!ids.length){alert('Seleccioná un artículo.');return;}
+  if(ids.length>1){alert('Seleccioná solo uno para editar.');return;}
+  editArt(ids[0]);
 }
 function filtArt() {
   const q=document.getElementById('bart').value.toLowerCase();
   const cat=document.getElementById('fcat').value;
-  renderArts(DB.arts.filter(a=>(!q||a.nom.toLowerCase().includes(q)||a.cod.toLowerCase().includes(q))&&(!cat||a.cat===cat)));
+  const provNom=document.getElementById('fprov').value;
+  const stk=document.getElementById('fstk').value;
+  renderArts(DB.arts.filter(function(a){
+    if(q && !a.nom.toLowerCase().includes(q) && !a.cod.toLowerCase().includes(q)) return false;
+    if(cat && a.cat!==cat) return false;
+    if(provNom){const p=DB.provs.find(function(x){return x.id==a.provid;});if(!p||p.nom!==provNom) return false;}
+    if(stk==='bajo' && !(a.usastk!=='no' && a.stk<=a.stkmin && a.stk>0)) return false;
+    if(stk==='sin' && a.stk>0) return false;
+    if(stk==='libre' && a.usastk!=='no') return false;
+    return true;
+  }));
 }
 function calcPrecios() {
   const c=parseFloat(document.getElementById('art-cos').value)||0;
