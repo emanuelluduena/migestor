@@ -957,6 +957,7 @@ async function delComp(id){if(!await confirmar('¿Eliminás esta compra?'))retur
 // ═══════════════════════ VENTAS ═══════════════════════
 let ticket=[];
 let ventaActual=null;
+let _bloqCobro=false;
 
 function getPrecio(art,lista,cant){if(cant>=art.cm)return pxc(art.cos,art.um);if(lista==='lista2')return pxc(art.cos,art.u2);if(lista==='lista3')return pxc(art.cos,art.u3);if(lista==='mayor')return pxc(art.cos,art.um);return pxc(art.cos,art.u1);}
 
@@ -977,7 +978,7 @@ function refrescaPV(){renderPVArts();recalc();}
 function limpiaPV(){document.getElementById('pvbus').value='';renderPVArts();document.getElementById('pvbus').focus();}
 function pvEnter(){
   const q=document.getElementById('pvbus').value.trim();
-  if(!q){if(ticket.length>0)iniciarCobro();return;}
+  if(!q){if(ticket.length>0&&!_bloqCobro)iniciarCobro();return;}
   // Codigo "1" = articulo generico con precio manual
   if(q==='1'){limpiaPV();abrirGenerico();return;}
 
@@ -1017,7 +1018,12 @@ function pvEnter(){
     addTicket(art.id);
     document.getElementById('pvbus').value='';
     renderPVArts();
-    setTimeout(function(){var b=document.getElementById('pvbus');if(b){b.focus();}},300);
+    _bloqCobro=true;
+    setTimeout(function(){
+      _bloqCobro=false;
+      var b=document.getElementById('pvbus');
+      if(b){b.focus();}
+    },600);
   } else {
     document.getElementById('pvbus').style.borderColor='var(--rojo)';
     setTimeout(function(){document.getElementById('pvbus').style.borderColor='';},1000);
