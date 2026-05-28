@@ -958,6 +958,7 @@ async function delComp(id){if(!await confirmar('¿Eliminás esta compra?'))retur
 let ticket=[];
 let ventaActual=null;
 let _bloqCobro=false;
+let _filaSelPV=-1;
 
 function getPrecio(art,lista,cant){if(cant>=art.cm)return pxc(art.cos,art.um);if(lista==='lista2')return pxc(art.cos,art.u2);if(lista==='lista3')return pxc(art.cos,art.u3);if(lista==='mayor')return pxc(art.cos,art.um);return pxc(art.cos,art.u1);}
 
@@ -970,10 +971,12 @@ function renderVentas(){
 function renderPVArts(lista){
   const arts=lista||DB.arts;const L=document.getElementById('pvlista').value;
   const tb=document.getElementById('tpvart');
-  if(!arts.length){tb.innerHTML='<tr><td colspan="5"><div class="vacio"><div class="vi">📦</div><p>Sin artículos</p></div></td></tr>';return;}
-  tb.innerHTML=arts.map(a=>'<tr><td><span class="bdg bv2">'+a.cod+'</span></td><td>'+a.nom+'</td><td><span class="bdg '+(a.stk>0?'bv2':'br2')+'">'+a.stk+'</span></td><td class="tv">'+fmt(getPrecio(a,L,1))+'</td><td><button class="btn bv bsm" onclick="addTicket('+a.id+')">➕</button></td></tr>').join('');
+  if(!arts.length){tb.innerHTML='<tr><td colspan="5"><div class="vacio"><div class="vi">📦</div><p>Sin artículos</p></div></td></tr>';_filaSelPV=-1;return;}
+  tb.innerHTML=arts.map(function(a,idx){
+    return '<tr id="pvrow-'+idx+'" class="pvfila" style="cursor:pointer" onclick="addTicket('+a.id+')" onmouseover="resaltarFila('+idx+')"><td><span class="bdg bv2">'+a.cod+'</span></td><td>'+a.nom+'</td><td><span class="bdg '+(a.stk>0?'bv2':'br2')+'">'+a.stk+'</span></td><td class="tv">'+fmt(getPrecio(a,L,1))+'</td><td><button class="btn bv bsm" onclick="event.stopPropagation();addTicket('+a.id+')">➕</button></td></tr>';
+  }).join('');
 }
-function filtPV(){const q=document.getElementById('pvbus').value.toLowerCase();renderPVArts(DB.arts.filter(a=>a.nom.toLowerCase().includes(q)||a.cod.toLowerCase().includes(q)));}
+function filtPV(){_filaSelPV=-1;const q=document.getElementById('pvbus').value.toLowerCase();renderPVArts(DB.arts.filter(a=>a.nom.toLowerCase().includes(q)||a.cod.toLowerCase().includes(q)));}
 function refrescaPV(){renderPVArts();recalc();}
 function limpiaPV(){document.getElementById('pvbus').value='';renderPVArts();document.getElementById('pvbus').focus();}
 function pvEnter(){
@@ -1424,7 +1427,10 @@ document.addEventListener('keydown',function(e){
       const bus=document.getElementById('pvbus');
       if(bus&&document.activeElement===bus&&bus.value.trim()===''&&ticket.length>0&&!_bloqCobro){e.preventDefault();iniciarCobro();}
     }
-    else if(e.key==='Escape'){limpiaPV();}
+    else if(e.key==='Escape'){limpiaPV();_filaSelPV=-1;}
+    else if(e.key==='ArrowDown'){e.preventDefault();navegarPV(1);}
+    else if(e.key==='ArrowUp'){e.preventDefault();navegarPV(-1);}
+    else if(e.key==='Enter'&&_filaSelPV>=0){e.preventDefault();seleccionarFilaPV();}
     else if(!enI&&e.key==='+'){if(ticket.length>0)chgCant(ticket.length-1,1);}
     else if(!enI&&e.key==='-'){if(ticket.length>0)chgCant(ticket.length-1,-1);}
     return;
@@ -1754,6 +1760,31 @@ function confirmar(msg) {
 function confirmResp(val) {
   document.getElementById('m-confirm').classList.remove('open');
   if(window._confirmResolve) { window._confirmResolve(val); window._confirmResolve = null; }
+}
+
+function resaltarFila(idx) {
+  _filaSelPV = idx;
+  document.querySelectorAll('.pvfila').forEach(function(r,i){
+    r.style.background = i===idx ? 'var(--verde-suave)' : '';
+    r.style.fontWeight = i===idx ? '600' : '';
+  });
+}
+function navegarPV(dir) {
+  var filas = document.querySelectorAll('.pvfila');
+  if(!filas.length) return;
+  _filaSelPV = Math.max(0, Math.min(filas.length-1, _filaSelPV + dir));
+  filas.forEach(function(r,i){
+    r.style.background = i===_filaSelPV ? 'var(--verde-suave)' : '';
+    r.style.fontWeight = i===_filaSelPV ? '600' : '';
+  });
+  filas[_filaSelPV].scrollIntoView({block:'nearest'});
+}
+function seleccionarFilaPV() {
+  var filas = document.querySelectorAll('.pvfila');
+  if(_filaSelPV >= 0 && _filaSelPV < filas.length) {
+    filas[_filaSelPV].click();
+    _filaSelPV = -1;
+  }
 }
 // INIT
 document.getElementById('fhdr').textContent=new Date().toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
