@@ -985,7 +985,7 @@ function pvEnter(){
   if(q.length===13 && q.startsWith('2')){
     const plu = String(parseInt(q.substring(1,6)));  // extraer PLU sin ceros
     const precioRaw = parseInt(q.substring(7,12));   // extraer precio (5 digitos)
-    const precio = precioRaw / 10;                   // ultimo digito es decimal
+    const precio = precioRaw;                        // precio directo sin division
     // Buscar articulo por PLU ignorando ceros del principio
     const artBalanza = DB.arts.find(function(a){
       return parseInt(a.cod) === parseInt(plu) || parseInt(a.cod) === parseInt(q.substring(1,6));
