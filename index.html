@@ -994,8 +994,11 @@ function pvEnter(){
     if(artBalanza){
       // Agregar al ticket con el precio de la balanza
       ticket.push({aid:artBalanza.id, nom:artBalanza.nom, cant:1, precio:precio, esMayor:false, manual:true, balanza:true});
-      limpiaPV();
+      document.getElementById('pvbus').value='';
+      renderPVArts();
       renderTicket();
+      _bloqCobro=true;
+      setTimeout(function(){_bloqCobro=false;var b=document.getElementById('pvbus');if(b)b.focus();},600);
       return;
     }
   }
@@ -1419,7 +1422,7 @@ document.addEventListener('keydown',function(e){
     else if(e.key==='F4'){e.preventDefault();iniciarCobro();}  // F4 = Cobrar
     else if(e.key==='Enter'){
       const bus=document.getElementById('pvbus');
-      if(bus&&document.activeElement===bus&&bus.value.trim()===''&&ticket.length>0){e.preventDefault();iniciarCobro();}
+      if(bus&&document.activeElement===bus&&bus.value.trim()===''&&ticket.length>0&&!_bloqCobro){e.preventDefault();iniciarCobro();}
     }
     else if(e.key==='Escape'){limpiaPV();}
     else if(!enI&&e.key==='+'){if(ticket.length>0)chgCant(ticket.length-1,1);}
