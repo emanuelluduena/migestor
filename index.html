@@ -1425,12 +1425,13 @@ document.addEventListener('keydown',function(e){
     else if(e.key==='F4'){e.preventDefault();iniciarCobro();}  // F4 = Cobrar
     else if(e.key==='Enter'){
       const bus=document.getElementById('pvbus');
+      // Primero verificar si hay fila seleccionada - tiene prioridad sobre cobro
+      if(_filaSelPV>=0){e.preventDefault();seleccionarFilaPV();return;}
       if(bus&&document.activeElement===bus&&bus.value.trim()===''&&ticket.length>0&&!_bloqCobro){e.preventDefault();iniciarCobro();}
     }
     else if(e.key==='Escape'){limpiaPV();_filaSelPV=-1;}
     else if(e.key==='ArrowDown'){e.preventDefault();navegarPV(1);}
     else if(e.key==='ArrowUp'){e.preventDefault();navegarPV(-1);}
-    else if(e.key==='Enter'&&_filaSelPV>=0){e.preventDefault();seleccionarFilaPV();}
     else if(!enI&&e.key==='+'){if(ticket.length>0)chgCant(ticket.length-1,1);}
     else if(!enI&&e.key==='-'){if(ticket.length>0)chgCant(ticket.length-1,-1);}
     return;
