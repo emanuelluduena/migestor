@@ -1013,8 +1013,15 @@ function pvEnter(){
     if(m.length===1) art=m[0];
     else if(m.length>1){renderPVArts(m);return;}
   }
-  if(art){addTicket(art.id);limpiaPV();}
-  else{document.getElementById('pvbus').style.borderColor='var(--rojo)';setTimeout(function(){document.getElementById('pvbus').style.borderColor='';},1000);}
+  if(art){
+    addTicket(art.id);
+    document.getElementById('pvbus').value='';
+    renderPVArts();
+    setTimeout(function(){var b=document.getElementById('pvbus');if(b){b.focus();}},300);
+  } else {
+    document.getElementById('pvbus').style.borderColor='var(--rojo)';
+    setTimeout(function(){document.getElementById('pvbus').style.borderColor='';},1000);
+  }
 }
 function addTicket(id){
   const art=DB.arts.find(a=>a.id===id);if(!art)return;
