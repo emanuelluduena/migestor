@@ -147,6 +147,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   <button class="tab" onclick="irA('estadisticas')" data-tab="estadisticas"><span class="ti">📊</span>Estadísticas</button>
   <button class="tab" onclick="irA('gastos')" data-tab="gastos"><span class="ti">📋</span>Gastos</button>
   <button class="tab" onclick="irA('contabilidad')" data-tab="contabilidad"><span class="ti">📒</span>Contabilidad</button>
+  <button class="tab" onclick="irA('precios')" data-tab="precios"><span class="ti">💲</span>Precios</button>
   <button class="tab" onclick="irA('bitacora')" data-tab="bitacora"><span class="ti">🔒</span>Bitácora</button>
   <button class="tab" onclick="irA('importar')" data-tab="importar"><span class="ti">📂</span>Importar/Export.</button>
   <button class="tab" onclick="irA('asistente')" data-tab="asistente"><span class="ti">🤖</span>Asistente IA</button>
@@ -540,6 +541,77 @@ tbody td{padding:9px 13px;vertical-align:middle;}
     </div>
   </div>
 </div>
+
+<!-- MODULO PRECIOS -->
+<div id="mod-precios" class="modulo">
+  <div class="panel">
+    <div class="ptit">💲 Actualización Masiva de Precios</div>
+    <div class="alert ai" style="margin-bottom:16px;font-size:13px">
+      💡 Seleccioná qué productos querés actualizar, elegí qué lista modificar y el nuevo porcentaje. Los precios se calculan sobre el costo de cada artículo.
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="fg">
+        <label>Filtrar por categoría</label>
+        <select id="prec-cat" onchange="renderPreciosFiltro()">
+          <option value="">Todas las categorías</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Filtrar por proveedor</label>
+        <select id="prec-prov" onchange="renderPreciosFiltro()">
+          <option value="">Todos los proveedores</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Buscar por nombre</label>
+        <input type="text" id="prec-bus" placeholder="Buscar..." oninput="renderPreciosFiltro()">
+      </div>
+    </div>
+
+    <div style="background:var(--verde-suave);border-radius:var(--radio);padding:16px;margin-bottom:16px">
+      <div class="stit" style="margin-bottom:12px">⚡ Aplicar cambio masivo a los productos filtrados</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:flex-end">
+        <div class="fg">
+          <label>Lista a modificar</label>
+          <select id="prec-lista">
+            <option value="u1">Lista 1</option>
+            <option value="u2">Lista 2</option>
+            <option value="u3">Lista 3</option>
+            <option value="um">Por Mayor</option>
+            <option value="todas">Todas las listas</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Tipo de cambio</label>
+          <select id="prec-tipo">
+            <option value="set">Establecer % fijo</option>
+            <option value="aum">Aumentar % sobre el actual</option>
+            <option value="dis">Disminuir % sobre el actual</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Porcentaje (%)</label>
+          <input type="number" id="prec-pct" value="100" min="0" max="9999" placeholder="ej: 100">
+        </div>
+        <button class="btn bv" onclick="aplicarCambioMasivo()" style="height:38px">⚡ Aplicar a todos los filtrados</button>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <label style="font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer">
+        <input type="checkbox" id="prec-sel-all" onchange="selTodosPrecios(this)"> Seleccionar todos
+      </label>
+      <span id="prec-count" style="font-size:12px;color:var(--gris)">0 seleccionados</span>
+      <button class="btn br bsm" onclick="aplicarCambioSeleccionados()">⚡ Aplicar solo a seleccionados</button>
+    </div>
+
+    <div class="twrap"><table>
+      <thead><tr><th style="width:30px"></th><th>Código</th><th>Nombre</th><th>Categoría</th><th>Costo</th><th>% L1</th><th>Precio L1</th><th>% L2</th><th>Precio L2</th><th>% L3</th><th>Precio L3</th><th>% Mayor</th><th>Precio Mayor</th></tr></thead>
+      <tbody id="tprecios"></tbody>
+    </table></div>
+  </div>
+</div>
 </main>
 
 <!-- MODALES -->
@@ -748,6 +820,7 @@ function renderMod(tab) {
   else if(tab==='gastos') renderGastos();
   else if(tab==='contabilidad') renderConta();
   else if(tab==='bitacora') renderBitacora();
+  else if(tab==='precios') renderPrecios();
   else if(tab==='importar') renderImportar();
   else if(tab==='asistente') renderAsistente();
 }
@@ -1787,6 +1860,107 @@ function seleccionarFilaPV() {
     _filaSelPV = -1;
   }
 }
+
+// =================== MODULO PRECIOS ===================
+function renderPrecios() {
+  var cats = [...new Set(DB.arts.map(function(a){return a.cat;}).filter(Boolean))].sort();
+  var provs = [...new Set(DB.arts.map(function(a){var p=DB.provs.find(function(x){return x.id==a.provid;});return p?p.nom:'';}).filter(Boolean))].sort();
+  var sc = document.getElementById('prec-cat');
+  var sv = sc.value;
+  sc.innerHTML = '<option value="">Todas las categorías</option>' + cats.map(function(c){return '<option value="'+c+'" '+(c===sv?'selected':'')+'>'+c+'</option>';}).join('');
+  var sp = document.getElementById('prec-prov');
+  var spv = sp.value;
+  sp.innerHTML = '<option value="">Todos los proveedores</option>' + provs.map(function(p){return '<option value="'+p+'" '+(p===spv?'selected':'')+'>'+p+'</option>';}).join('');
+  renderPreciosFiltro();
+}
+
+function getPreciosFiltrados() {
+  var cat = document.getElementById('prec-cat').value;
+  var prov = document.getElementById('prec-prov').value;
+  var bus = document.getElementById('prec-bus').value.toLowerCase();
+  return DB.arts.filter(function(a){
+    if(cat && a.cat !== cat) return false;
+    if(prov){var p=DB.provs.find(function(x){return x.id==a.provid;});if(!p||p.nom!==prov) return false;}
+    if(bus && !a.nom.toLowerCase().includes(bus) && !a.cod.toLowerCase().includes(bus)) return false;
+    return true;
+  });
+}
+
+function renderPreciosFiltro() {
+  var arts = getPreciosFiltrados();
+  var tb = document.getElementById('tprecios');
+  if(!arts.length){tb.innerHTML='<tr><td colspan="13"><div class="vacio"><div class="vi">💲</div><p>Sin artículos</p></div></td></tr>';return;}
+  tb.innerHTML = arts.map(function(a){
+    return '<tr>' +
+      '<td><input type="checkbox" class="prec-chk" value="'+a.id+'" onchange="actualizarContadorPrecios()"></td>' +
+      '<td><span class="bdg bv2">'+a.cod+'</span></td>' +
+      '<td><strong>'+a.nom+'</strong></td>' +
+      '<td>'+(a.cat||'-')+'</td>' +
+      '<td>'+fmt(a.cos)+'</td>' +
+      '<td><input type="number" class="prec-input" data-id="'+a.id+'" data-campo="u1" value="'+a.u1+'" style="width:55px;border:1px solid #ddd;border-radius:4px;padding:3px;text-align:center" onchange="actualizarPrecioArt(this)"></td>' +
+      '<td class="tv">'+fmt(pxc(a.cos,a.u1))+'</td>' +
+      '<td><input type="number" class="prec-input" data-id="'+a.id+'" data-campo="u2" value="'+a.u2+'" style="width:55px;border:1px solid #ddd;border-radius:4px;padding:3px;text-align:center" onchange="actualizarPrecioArt(this)"></td>' +
+      '<td class="tv">'+fmt(pxc(a.cos,a.u2))+'</td>' +
+      '<td><input type="number" class="prec-input" data-id="'+a.id+'" data-campo="u3" value="'+a.u3+'" style="width:55px;border:1px solid #ddd;border-radius:4px;padding:3px;text-align:center" onchange="actualizarPrecioArt(this)"></td>' +
+      '<td class="tv">'+fmt(pxc(a.cos,a.u3))+'</td>' +
+      '<td><input type="number" class="prec-input" data-id="'+a.id+'" data-campo="um" value="'+a.um+'" style="width:55px;border:1px solid #ddd;border-radius:4px;padding:3px;text-align:center" onchange="actualizarPrecioArt(this)"></td>' +
+      '<td class="tt2">'+fmt(pxc(a.cos,a.um))+'</td>' +
+    '</tr>';
+  }).join('');
+  actualizarContadorPrecios();
+}
+
+function actualizarPrecioArt(input) {
+  var id = parseInt(input.getAttribute('data-id'));
+  var campo = input.getAttribute('data-campo');
+  var val = parseFloat(input.value) || 0;
+  var art = DB.arts.find(function(a){return a.id===id;});
+  if(art){ art[campo]=val; saveDB(); }
+  // Actualizar precio calculado en la fila
+  renderPreciosFiltro();
+}
+
+function actualizarContadorPrecios() {
+  var sel = document.querySelectorAll('.prec-chk:checked').length;
+  var cnt = document.getElementById('prec-count');
+  if(cnt) cnt.textContent = sel + ' seleccionado' + (sel!==1?'s':'');
+}
+
+function selTodosPrecios(cb) {
+  document.querySelectorAll('.prec-chk').forEach(function(c){c.checked=cb.checked;});
+  actualizarContadorPrecios();
+}
+
+function aplicarCambio(arts) {
+  var lista = document.getElementById('prec-lista').value;
+  var tipo = document.getElementById('prec-tipo').value;
+  var pct = parseFloat(document.getElementById('prec-pct').value) || 0;
+  var listas = lista === 'todas' ? ['u1','u2','u3','um'] : [lista];
+  arts.forEach(function(a){
+    listas.forEach(function(l){
+      if(tipo==='set') a[l] = pct;
+      else if(tipo==='aum') a[l] = Math.round((a[l]||0) + pct);
+      else if(tipo==='dis') a[l] = Math.max(0, Math.round((a[l]||0) - pct));
+    });
+  });
+  saveDB();
+  renderPreciosFiltro();
+  toast('Precios actualizados en '+arts.length+' artículos','v');
+}
+
+function aplicarCambioMasivo() {
+  var arts = getPreciosFiltrados();
+  if(!arts.length){toast('No hay artículos filtrados','a');return;}
+  aplicarCambio(arts);
+}
+
+function aplicarCambioSeleccionados() {
+  var ids = [...document.querySelectorAll('.prec-chk:checked')].map(function(c){return parseInt(c.value);});
+  if(!ids.length){toast('Seleccioná al menos un artículo','a');return;}
+  var arts = DB.arts.filter(function(a){return ids.includes(a.id);});
+  aplicarCambio(arts);
+}
+
 // INIT
 document.getElementById('fhdr').textContent=new Date().toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 // Migrar datos viejos del localStorage si es necesario
