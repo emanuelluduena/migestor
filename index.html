@@ -477,7 +477,14 @@ tbody td{padding:9px 13px;vertical-align:middle;}
           <option value="actualizar">Actualizar el existente</option>
         </select>
       </div>
-      <button class="btn bv" onclick="importarCSV()">📥 Importar</button>
+      <button class="btn bv" onclick="importarCSV()">📥 Importar con porcentajes</button>
+      <div class="divider" style="margin-top:14px"></div>
+      <div class="stit">💲 Importar con precios finales</div>
+      <p style="font-size:12px;color:var(--gris);margin-bottom:8px">Usá esta opción si tu CSV tiene columnas <strong>precio_lista1, precio_lista2, precio_lista3, precio_mayor</strong> con precios directos de venta.</p>
+      <div class="fg" style="margin-bottom:10px">
+        <input type="file" id="csv-file2" accept=".csv,.xls,.xlsx" style="background:white;padding:8px">
+      </div>
+      <button class="btn bt" onclick="importarCSVPrecios()">💲 Importar con precios finales</button>
       <div id="csv-resultado" style="margin-top:12px"></div>
     </div>
     <div class="panel">
@@ -1033,7 +1040,7 @@ let ventaActual=null;
 let _bloqCobro=false;
 let _filaSelPV=-1;
 
-function getPrecio(art,lista,cant){if(cant>=art.cm)return pxc(art.cos,art.um);if(lista==='lista2')return pxc(art.cos,art.u2);if(lista==='lista3')return pxc(art.cos,art.u3);if(lista==='mayor')return pxc(art.cos,art.um);return pxc(art.cos,art.u1);}
+function getPrecio(art,lista,cant){if(cant>=art.cm)return (art.um===0&&art.pm)?art.pm:pxc(art.cos,art.um);if(lista==='lista2')return (art.u2===0&&art.p2)?art.p2:pxc(art.cos,art.u2);if(lista==='lista3')return (art.u3===0&&art.p3)?art.p3:pxc(art.cos,art.u3);if(lista==='mayor')return (art.um===0&&art.pm)?art.pm:pxc(art.cos,art.um);return (art.u1===0&&art.p1)?art.p1:pxc(art.cos,art.u1);}
 
 function renderVentas(){
   const sc=document.getElementById('pvcli');sc.innerHTML='<option value="">Consumidor Final</option>'+DB.clis.map(c=>'<option value="'+c.id+'">'+c.nom+'</option>').join('');
@@ -1961,6 +1968,52 @@ function aplicarCambioSeleccionados() {
   aplicarCambio(arts);
 }
 
+function importarCSVPrecios() {
+  var file = document.getElementById('csv-file2').files[0];
+  if(!file){toast('Selecciona un archivo','a');return;}
+  var modo = document.getElementById('csv-modo').value;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var text = e.target.result.replace(/^﻿/,'');
+    var lines = text.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+    if(lines.length < 2){document.getElementById('csv-resultado').innerHTML='<div class="alert ar">Sin datos.</div>';return;}
+    var sep = lines[0].includes(';') ? ';' : ',';
+    function pl(line) {
+      var r=[],cur='',inQ=false;
+      for(var i=0;i<line.length;i++){
+        var c=line[i];
+        if(c==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else{inQ=!inQ;}}
+        else if(c===sep&&!inQ){r.push(cur.trim());cur='';}
+        else cur+=c;
+      }
+      r.push(cur.trim());
+      return r;
+    }
+    var headers=pl(lines[0]).map(function(h){return h.toLowerCase().replace(/[^a-z0-9_]/g,'');});
+    var g=function(vals,campo){var i=headers.indexOf(campo);return i>=0?(vals[i]||'').replace(/^"|"$/g,'').replace(/,/g,'.'):''};
+    var agr=0,act=0,err=0;
+    for(var i=1;i<lines.length;i++){
+      var v=pl(lines[i]);
+      if(v.length<3)continue;
+      var nom=g(v,'nombre');if(!nom){err++;continue;}
+      var cod=g(v,'codigo')||('IMP'+i);
+      var costo=parseFloat(g(v,'costo'))||0;
+      var p1=parseFloat(g(v,'precio_lista1'))||0;
+      var p2=parseFloat(g(v,'precio_lista2'))||0;
+      var p3=parseFloat(g(v,'precio_lista3'))||0;
+      var pm=parseFloat(g(v,'precio_mayor'))||0;
+      var provNom=g(v,'proveedor');var provid=null;
+      if(provNom){var pe=DB.provs.find(function(p){return p.nom.toLowerCase()===provNom.toLowerCase();});if(pe)provid=pe.id;else{var np={id:nid('prov'),nom:provNom,cuit:'',tel:'',email:'',dir:'',rub:'Importado',not:''};DB.provs.push(np);provid=np.id;}}
+      var nuevo={cod:cod,nom:nom,cat:g(v,'categoria')||'',uni:g(v,'unidad')||'Unidad',provid:provid,stk:parseFloat(g(v,'stock'))||0,stkmin:parseFloat(g(v,'stock_minimo'))||5,usastk:g(v,'control_stock')||'si',cos:costo,u1:0,u2:0,u3:0,um:0,p1:p1,p2:p2,p3:p3,pm:pm,cm:parseFloat(g(v,'cant_mayor'))||2};
+      var ex=DB.arts.find(function(a){return a.cod===cod;});
+      if(ex){if(modo==='actualizar'){var ix=DB.arts.indexOf(ex);DB.arts[ix]=Object.assign({},ex,nuevo,{id:ex.id});act++;}}
+      else{nuevo.id=nid('art');DB.arts.push(nuevo);agr++;}
+    }
+    saveDB();
+    document.getElementById('csv-resultado').innerHTML='<div class="alert av">Completado: '+agr+' nuevos, '+act+' actualizados'+(err?', '+err+' errores':'')+'</div>';
+  };
+  reader.readAsText(file,'UTF-8');
+}
 // INIT
 document.getElementById('fhdr').textContent=new Date().toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 // Migrar datos viejos del localStorage si es necesario
