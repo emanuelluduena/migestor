@@ -148,6 +148,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   <button class="tab" onclick="irA('gastos')" data-tab="gastos"><span class="ti">📋</span>Gastos</button>
   <button class="tab" onclick="irA('contabilidad')" data-tab="contabilidad"><span class="ti">📒</span>Contabilidad</button>
   <button class="tab" onclick="irA('precios')" data-tab="precios"><span class="ti">💲</span>Precios</button>
+  <button class="tab" onclick="irA('config')" data-tab="config"><span class="ti">⚙️</span>Configuración</button>
   <button class="tab" onclick="irA('bitacora')" data-tab="bitacora"><span class="ti">🔒</span>Bitácora</button>
   <button class="tab" onclick="irA('importar')" data-tab="importar"><span class="ti">📂</span>Importar/Export.</button>
   <button class="tab" onclick="irA('asistente')" data-tab="asistente"><span class="ti">🤖</span>Asistente IA</button>
@@ -156,9 +157,31 @@ tbody td{padding:9px 13px;vertical-align:middle;}
 
 <div id="mod-inicio" class="modulo activo">
   <div class="sgrid" id="si"></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:18px">
+    <div class="panel">
+      <div class="ptit" style="justify-content:space-between">
+        <span>📈 Ventas de los últimos 7 días</span>
+        <select id="dash-periodo" onchange="renderInicio()" style="font-size:12px;border:1px solid #ddd;border-radius:6px;padding:3px 8px;font-family:inherit">
+          <option value="7">Últimos 7 días</option>
+          <option value="15">Últimos 15 días</option>
+          <option value="30">Últimos 30 días</option>
+        </select>
+      </div>
+      <div id="dash-grafico" style="height:180px;display:flex;align-items:flex-end;gap:6px;padding:10px 0 0"></div>
+      <div id="dash-eje" style="display:flex;gap:6px;margin-top:4px"></div>
+    </div>
+    <div class="panel">
+      <div class="ptit">🏆 Top productos</div>
+      <div id="dash-top"></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px">
     <div class="panel"><div class="ptit">⚠️ Stock Bajo</div><div id="sb"></div></div>
     <div class="panel"><div class="ptit">💸 Últimas Ventas</div><div id="uv"></div></div>
+    <div class="panel">
+      <div class="ptit">💳 Ventas por pago hoy</div>
+      <div id="dash-pagos"></div>
+    </div>
   </div>
 </div>
 
@@ -619,6 +642,39 @@ tbody td{padding:9px 13px;vertical-align:middle;}
     </table></div>
   </div>
 </div>
+
+<div id="mod-config" class="modulo">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div class="panel">
+      <div class="ptit">🏪 Datos del Negocio</div>
+      <div class="fgrid" style="grid-template-columns:1fr">
+        <div class="fg"><label>Nombre del negocio</label><input type="text" id="cfg-nombre" placeholder="Almacén Natural"></div>
+        <div class="fg"><label>Slogan o descripción</label><input type="text" id="cfg-slogan" placeholder="Sistema de Gestión"></div>
+        <div class="fg"><label>Dirección</label><input type="text" id="cfg-dir" placeholder="Av. Ejemplo 123"></div>
+        <div class="fg"><label>Teléfono</label><input type="text" id="cfg-tel" placeholder="351-000-0000"></div>
+        <div class="fg"><label>Email</label><input type="email" id="cfg-email" placeholder="negocio@email.com"></div>
+        <div class="fg"><label>CUIT / Condición fiscal</label><input type="text" id="cfg-cuit" placeholder="20-12345678-9 · Monotributista"></div>
+        <button class="btn bv" onclick="guardarConfig()">💾 Guardar cambios</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ptit">🖼️ Logo del negocio</div>
+      <div style="text-align:center;margin-bottom:16px">
+        <div id="cfg-logo-preview" style="width:160px;height:160px;border-radius:12px;border:2px dashed #ccc;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;background:var(--crema);font-size:48px;overflow:hidden">
+          🌿
+        </div>
+        <div class="fg">
+          <label>Subir logo (PNG, JPG)</label>
+          <input type="file" id="cfg-logo-file" accept="image/*" onchange="cargarLogo(this)" style="background:white;padding:8px">
+        </div>
+        <button class="btn bg bsm" onclick="quitarLogo()" style="margin-top:8px">✕ Quitar logo</button>
+      </div>
+      <div class="alert av" style="font-size:12px">
+        💡 El logo aparece en el encabezado del sistema y en los tickets de venta.
+      </div>
+    </div>
+  </div>
+</div>
 </main>
 
 <!-- MODALES -->
@@ -770,7 +826,7 @@ function loadDB() {
   const defaults = {
     arts:[], provs:[], clis:[],
     usrs:[{id:1,nom:'Administrador',usr:'admin',pass:'1234',rol:'Administrador',activo:true}],
-    bitacora:[], comps:[], ventas:[], gastos:[], caja:[],
+    bitacora:[], comps:[], ventas:[], gastos:[], caja:[], config:{},
     ids:{art:1,prov:1,cli:1,usr:2,comp:1,venta:1,gasto:1,caja:1}
   };
   try {
@@ -826,6 +882,7 @@ function renderMod(tab) {
   else if(tab==='estadisticas') renderStats();
   else if(tab==='gastos') renderGastos();
   else if(tab==='contabilidad') renderConta();
+  else if(tab==='config') renderConfig();
   else if(tab==='bitacora') renderBitacora();
   else if(tab==='precios') renderPrecios();
   else if(tab==='importar') renderImportar();
@@ -834,22 +891,110 @@ function renderMod(tab) {
 
 // ═══════════════════════ INICIO ═══════════════════════
 function renderInicio() {
-  const vh = DB.ventas.filter(v=>v.fecha===hoy()).reduce((s,v)=>s+v.total,0);
-  const vm = DB.ventas.filter(v=>v.fecha&&v.fecha.startsWith(new Date().toISOString().slice(0,7))).reduce((s,v)=>s+v.total,0);
-  const sb = DB.arts.filter(a=>a.usastk!=='no'&&a.stk<=a.stkmin).length;
+  var hoyStr = hoy();
+  var mesStr = new Date().toISOString().slice(0,7);
+  var vh = DB.ventas.filter(function(v){return v.fecha===hoyStr;}).reduce(function(s,v){return s+v.total;},0);
+  var vm = DB.ventas.filter(function(v){return v.fecha&&v.fecha.startsWith(mesStr);}).reduce(function(s,v){return s+v.total;},0);
+  var sb = DB.arts.filter(function(a){return a.usastk!=='no'&&a.stk<=a.stkmin;}).length;
+  var vhoy = DB.ventas.filter(function(v){return v.fecha===hoyStr;}).length;
   document.getElementById('si').innerHTML =
-    '<div class="scard"><div class="snum">'+fmt(vh)+'</div><div class="slbl">💰 Ventas de hoy</div></div>'+
+    '<div class="scard"><div class="snum">'+fmt(vh)+'</div><div class="slbl">💰 Ventas de hoy ('+vhoy+' tickets)</div></div>'+
     '<div class="scard"><div class="snum">'+fmt(vm)+'</div><div class="slbl">📅 Ventas del mes</div></div>'+
     '<div class="scard am"><div class="snum">'+DB.arts.length+'</div><div class="slbl">📦 Artículos</div></div>'+
     '<div class="scard '+(sb>0?'ro':'')+'"><div class="snum">'+sb+'</div><div class="slbl">⚠️ Stock bajo</div></div>';
-  const sbajo = DB.arts.filter(a=>a.usastk!=='no'&&a.stk<=a.stkmin);
-  document.getElementById('sb').innerHTML = sbajo.length===0 ?
-    '<div class="alert av">✅ Todo el stock en orden</div>' :
-    sbajo.map(a=>'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eee;font-size:13px"><span>'+a.nom+'</span><span class="bdg '+(a.stk<=0?'br2':'ba2')+'">'+a.stk+' '+a.uni+'</span></div>').join('');
-  const uv = [...DB.ventas].reverse().slice(0,5);
-  document.getElementById('uv').innerHTML = uv.length===0 ?
-    '<div class="vacio"><div class="vi">💰</div><p>Sin ventas</p></div>' :
-    uv.map(v=>'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eee;font-size:13px"><span>'+(v.clinom||'Consumidor Final')+'</span><span class="tv">'+fmt(v.total)+'</span></div>').join('');
+
+  // Grafico de barras - ultimos N dias
+  var dias = parseInt((document.getElementById('dash-periodo')||{value:'7'}).value)||7;
+  var fechas = [];
+  for(var i=dias-1;i>=0;i--){
+    var d = new Date(); d.setDate(d.getDate()-i);
+    fechas.push(d.toISOString().slice(0,10));
+  }
+  var totales = fechas.map(function(f){
+    return DB.ventas.filter(function(v){return v.fecha===f;}).reduce(function(s,v){return s+v.total;},0);
+  });
+  var maxVal = Math.max.apply(null, totales.concat([1]));
+  var grafico = document.getElementById('dash-grafico');
+  var eje = document.getElementById('dash-eje');
+  if(grafico) {
+    var barWidth = Math.floor(100/dias);
+    grafico.innerHTML = totales.map(function(t,i){
+      var h = Math.max(4, Math.round((t/maxVal)*160));
+      var esFin = new Date(fechas[i]).getDay()===0||new Date(fechas[i]).getDay()===6;
+      var esHoy = fechas[i]===hoyStr;
+      var color = esHoy?'var(--verde)':esFin?'var(--tierra-claro)':'var(--verde-claro)';
+      return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:default" title="'+fechas[i]+': '+fmt(t)+'">'
+        +(t>0?'<span style="font-size:9px;color:var(--verde);font-weight:600">'+fmt(t).replace('$','').trim()+'</span>':'<span style="font-size:9px"> </span>')
+        +'<div style="width:100%;max-width:40px;height:'+h+'px;background:'+color+';border-radius:4px 4px 0 0;transition:height 0.3s"></div>'
+        +'</div>';
+    }).join('');
+    eje.innerHTML = fechas.map(function(f){
+      var d = new Date(f+'T00:00:00');
+      var esHoy = f===hoyStr;
+      return '<div style="flex:1;text-align:center;font-size:9px;color:'+(esHoy?'var(--verde)':'var(--gris)')+';font-weight:'+(esHoy?'700':'400')+'">'+d.getDate()+'/'+(d.getMonth()+1)+'</div>';
+    }).join('');
+  }
+
+  // Top 5 productos
+  var conteo = {};
+  DB.ventas.filter(function(v){return v.fecha&&v.fecha.startsWith(mesStr);}).forEach(function(v){
+    v.items.forEach(function(it){conteo[it.nom]=(conteo[it.nom]||0)+it.cant;});
+  });
+  var top = Object.entries(conteo).sort(function(a,b){return b[1]-a[1];}).slice(0,5);
+  var topEl = document.getElementById('dash-top');
+  if(topEl) {
+    var emos = ['🥇','🥈','🥉','4️⃣','5️⃣'];
+    topEl.innerHTML = top.length===0
+      ? '<div class="vacio" style="padding:20px"><div class="vi">📦</div><p>Sin ventas este mes</p></div>'
+      : top.map(function(x,i){
+          return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px">'
+            +'<span>'+emos[i]+'</span>'
+            +'<span style="flex:1">'+x[0]+'</span>'
+            +'<span class="bdg bv2">'+x[1]+' u.</span>'
+            +'</div>';
+        }).join('');
+  }
+
+  // Ventas por pago hoy
+  var pagos = {};
+  DB.ventas.filter(function(v){return v.fecha===hoyStr;}).forEach(function(v){
+    pagos[v.pago]=(pagos[v.pago]||0)+v.total;
+  });
+  var pagosEl = document.getElementById('dash-pagos');
+  if(pagosEl) {
+    var totPagos = Object.values(pagos).reduce(function(s,v){return s+v;},0);
+    pagosEl.innerHTML = Object.keys(pagos).length===0
+      ? '<div class="vacio" style="padding:20px"><div class="vi">💳</div><p>Sin ventas hoy</p></div>'
+      : Object.entries(pagos).sort(function(a,b){return b[1]-a[1];}).map(function(x){
+          var pct = totPagos?Math.round(x[1]/totPagos*100):0;
+          return '<div style="margin-bottom:10px">'
+            +'<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">'
+            +'<span>'+x[0]+'</span><span class="tv">'+fmt(x[1])+'</span></div>'
+            +'<div style="background:#eee;border-radius:20px;height:7px">'
+            +'<div style="background:var(--verde-claro);border-radius:20px;height:7px;width:'+pct+'%"></div>'
+            +'</div></div>';
+        }).join('');
+  }
+
+  // Stock bajo
+  var sbajo = DB.arts.filter(function(a){return a.usastk!=='no'&&a.stk<=a.stkmin;});
+  document.getElementById('sb').innerHTML = sbajo.length===0
+    ? '<div class="alert av">✅ Todo el stock en orden</div>'
+    : sbajo.slice(0,6).map(function(a){
+        return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee;font-size:13px">'
+          +'<span>'+a.nom+'</span>'
+          +'<span class="bdg '+(a.stk<=0?'br2':'ba2')+'">'+a.stk+' '+a.uni+'</span></div>';
+      }).join('')+(sbajo.length>6?'<div style="font-size:12px;color:var(--gris);margin-top:6px">...y '+(sbajo.length-6)+' más</div>':'');
+
+  // Ultimas ventas
+  var uv = [...DB.ventas].reverse().slice(0,5);
+  document.getElementById('uv').innerHTML = uv.length===0
+    ? '<div class="vacio"><div class="vi">💰</div><p>Sin ventas</p></div>'
+    : uv.map(function(v){
+        return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee;font-size:13px">'
+          +'<div><span>'+(v.clinom||'Consumidor Final')+'</span><br><span style="font-size:10px;color:var(--gris)">'+v.hora+' — '+v.pago+'</span></div>'
+          +'<span class="tv">'+fmt(v.total)+'</span></div>';
+      }).join('');
 }
 
 // ═══════════════════════ ARTÍCULOS ═══════════════════════
@@ -868,7 +1013,7 @@ function renderArts(lista) {
   tb.innerHTML = arts.map(a=>{
     const l1=fmt(pxc(a.cos,a.u1)),l2=fmt(pxc(a.cos,a.u2)),l3=fmt(pxc(a.cos,a.u3)),lm=fmt(pxc(a.cos,a.um));
     const sb=a.stk<=0?'br2':a.stk<=a.stkmin?'ba2':'bv2';
-    return '<tr><td><input type="checkbox" class="art-chk" value="'+a.id+'" onchange="actualizarContador()"></td><td><span class="bdg bv2">'+a.cod+'</span></td><td><strong>'+a.nom+'</strong></td><td>'+(a.cat||'-')+'</td><td>'+fmt(a.cos)+'</td><td>'+l1+'</td><td>'+l2+'</td><td>'+l3+'</td><td class="tt2">'+lm+'</td><td>>='+a.cm+'</td><td><span class="bdg '+sb+'">'+a.stk+' '+a.uni+'</span></td><td><span class="bdg '+(a.usastk==='no'?'bt2':'bv2')+'">'+(a.usastk==='no'?'Libre':'Con stk')+'</span></td><td style="white-space:nowrap"><button class="btn bg bsm" onclick="editArt('+a.id+')">✏️</button> <button class="btn br bsm" onclick="delArt('+a.id+')">🗑️</button></td></tr>';
+    return '<tr ondblclick="editArt('+a.id+')" style="cursor:pointer"><td onclick="event.stopPropagation()"><input type="checkbox" class="art-chk" value="'+a.id+'" onchange="actualizarContador()"></td><td><span class="bdg bv2">'+a.cod+'</span></td><td><strong>'+a.nom+'</strong></td><td>'+(a.cat||'-')+'</td><td>'+fmt(a.cos)+'</td><td>'+l1+'</td><td>'+l2+'</td><td>'+l3+'</td><td class="tt2">'+lm+'</td><td>>='+a.cm+'</td><td><span class="bdg '+sb+'">'+a.stk+' '+a.uni+'</span></td><td><span class="bdg '+(a.usastk==='no'?'bt2':'bv2')+'">'+(a.usastk==='no'?'Libre':'Con stk')+'</span></td><td style="white-space:nowrap" onclick="event.stopPropagation()"><button class="btn bg bsm" onclick="editArt('+a.id+')">✏️</button> <button class="btn br bsm" onclick="delArt('+a.id+')">🗑️</button></td></tr>';
   }).join('');
   actualizarContador();
 }
@@ -2014,6 +2159,83 @@ function importarCSVPrecios() {
   };
   reader.readAsText(file,'UTF-8');
 }
+
+function renderConfig() {
+  var cfg = DB.config || {};
+  document.getElementById('cfg-nombre').value = cfg.nombre || '';
+  document.getElementById('cfg-slogan').value = cfg.slogan || '';
+  document.getElementById('cfg-dir').value = cfg.dir || '';
+  document.getElementById('cfg-tel').value = cfg.tel || '';
+  document.getElementById('cfg-email').value = cfg.email || '';
+  document.getElementById('cfg-cuit').value = cfg.cuit || '';
+  var prev = document.getElementById('cfg-logo-preview');
+  if(cfg.logo) {
+    prev.innerHTML = '<img src="'+cfg.logo+'" style="width:100%;height:100%;object-fit:contain;border-radius:10px">';
+  } else {
+    prev.innerHTML = '🌿';
+  }
+}
+
+function guardarConfig() {
+  if(!DB.config) DB.config = {};
+  DB.config.nombre = document.getElementById('cfg-nombre').value.trim();
+  DB.config.slogan = document.getElementById('cfg-slogan').value.trim();
+  DB.config.dir = document.getElementById('cfg-dir').value.trim();
+  DB.config.tel = document.getElementById('cfg-tel').value.trim();
+  DB.config.email = document.getElementById('cfg-email').value.trim();
+  DB.config.cuit = document.getElementById('cfg-cuit').value.trim();
+  saveDB();
+  aplicarConfig();
+  toast('Configuración guardada', 'v');
+}
+
+function cargarLogo(input) {
+  var file = input.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    if(!DB.config) DB.config = {};
+    DB.config.logo = e.target.result;
+    saveDB();
+    aplicarConfig();
+    var prev = document.getElementById('cfg-logo-preview');
+    prev.innerHTML = '<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:contain;border-radius:10px">';
+    toast('Logo cargado', 'v');
+  };
+  reader.readAsDataURL(file);
+}
+
+function quitarLogo() {
+  if(!DB.config) DB.config = {};
+  DB.config.logo = null;
+  saveDB();
+  aplicarConfig();
+  document.getElementById('cfg-logo-preview').innerHTML = '🌿';
+  toast('Logo quitado', 'v');
+}
+
+function aplicarConfig() {
+  var cfg = DB.config || {};
+  var nombre = cfg.nombre || 'Almacén Natural';
+  var slogan = cfg.slogan || 'Sistema de Gestión';
+  var logo = cfg.logo;
+  var logoEl = document.querySelector('.hlogo .nombre');
+  var subEl = document.querySelector('.hlogo .sub');
+  if(logoEl) logoEl.textContent = nombre;
+  if(subEl) subEl.textContent = slogan;
+  // Cambiar icono del header por logo si existe
+  var iconEl = document.querySelector('.hlogo span[style*="font-size:26px"]');
+  if(iconEl) {
+    if(logo) {
+      iconEl.innerHTML = '<img src="'+logo+'" style="width:38px;height:38px;object-fit:contain;border-radius:6px">';
+    } else {
+      iconEl.textContent = '🌿';
+    }
+  }
+  // Actualizar titulo del browser
+  document.title = nombre + ' — Sistema de Gestión';
+}
+
 // INIT
 document.getElementById('fhdr').textContent=new Date().toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 // Migrar datos viejos del localStorage si es necesario
@@ -2035,6 +2257,8 @@ DB.arts.forEach(function(a){
   if(a.cm===undefined) a.cm = 2;
 });
 saveDB();
+if(!DB.config) DB.config={};
+aplicarConfig();
 renderInicio();
 </script>
 <div id="toast-container"></div>
