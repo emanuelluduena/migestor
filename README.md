@@ -5,6 +5,7 @@ Dos funciones de las que estoy especialmente conforme: la posibilidad de importa
 Toda la información se guarda localmente en el navegador mediante localStorage, lo que permite que el sistema funcione sin necesidad de un servidor y mantenga los datos entre sesiones. Tomé esta decisión para que la herramienta fuera simple de poner en marcha en el comercio, sin instalaciones ni infraestructura complicada.
 El proyecto está hecho íntegramente con HTML, CSS y JavaScript puro (sin frameworks), lo que implicó construir desde cero toda la lógica de la aplicación: la navegación entre módulos, el manejo de los datos, los formularios, las tablas dinámicas, las ventanas modales y las notificaciones en pantalla.
 Trabajando en este sistema puse en práctica el desarrollo de una aplicación web completa de una sola página (SPA) con JavaScript puro, el diseño y manejo de una base de datos en el navegador con localStorage, la integración de una API externa de inteligencia artificial, la importación y exportación de archivos CSV y Excel, el manejo de roles y permisos de usuario, y el diseño de una interfaz cuidada y adaptable a distintos dispositivos.
+El proyecto se encuentra aun en desarrolo.
 
 Link:
 https://emanuelluduena.github.io/Puntodeventa/
