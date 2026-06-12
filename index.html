@@ -843,7 +843,14 @@ function loadDB() {
   return defaults;
 }
 let DB = loadDB();
-function saveDB() { localStorage.setItem(SK, JSON.stringify(DB)); }
+function saveDB() {
+  localStorage.setItem(SK, JSON.stringify(DB));
+  // Invalidar cache de render: el próximo acceso a cada módulo
+  // recalculará para reflejar los datos nuevos.
+  if (typeof _renderCache !== 'undefined') {
+    Object.keys(_renderCache).forEach(k => delete _renderCache[k]);
+  }
+}
 function nid(k) { const id=DB.ids[k]; DB.ids[k]++; saveDB(); return id; }
 
 // ═══════════════════════ UTILS ═══════════════════════
@@ -857,6 +864,38 @@ function abrir(id) { document.getElementById(id).classList.add('open'); }
 document.querySelectorAll('.moverlay').forEach(m => m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); }));
 
 // ═══════════════════════ NAVEGACIÓN ═══════════════════════
+
+// Cache de renders: guarda una firma de los datos al momento de renderizar.
+// Si la firma no cambió, no se vuelve a renderizar al volver al módulo.
+const _renderCache = {};
+
+// Módulos que SIEMPRE se re-renderizan (tienen estado activo que puede cambiar
+// sin que DB cambie, o son el panel principal)
+const _siempreRender = new Set(['inicio', 'ventas', 'caja']);
+
+// Genera una firma liviana de los datos relevantes para cada módulo.
+// Solo se hashea lo que ese módulo realmente usa.
+function _firma(tab) {
+  try {
+    switch(tab) {
+      case 'articulos':   return DB.arts.length + '|' + (DB.arts[DB.arts.length-1]||{}).id;
+      case 'proveedores': return DB.provs.length + '|' + (DB.provs[DB.provs.length-1]||{}).id;
+      case 'clientes':    return DB.clis.length  + '|' + (DB.clis[DB.clis.length-1]||{}).id;
+      case 'usuarios':    return DB.usrs.length  + '|' + (DB.usrs[DB.usrs.length-1]||{}).id;
+      case 'compras':     return DB.comps.length + '|' + (DB.comps[DB.comps.length-1]||{}).id;
+      case 'gastos':      return DB.gastos.length + '|' + (DB.gastos[DB.gastos.length-1]||{}).id;
+      case 'estadisticas':return DB.ventas.length + '|' + DB.gastos.length + '|' + DB.comps.length;
+      case 'contabilidad':return DB.ventas.length + '|' + DB.gastos.length + '|' + DB.caja.length;
+      case 'precios':     return DB.arts.length + '|' + JSON.stringify(DB.config&&DB.config.listas||'');
+      case 'bitacora':    return DB.bitacora.length + '|' + (DB.bitacora[DB.bitacora.length-1]||{}).ts;
+      case 'config':      return JSON.stringify(DB.config||{});
+      case 'importar':    return 'static';
+      case 'asistente':   return 'static';
+      default:            return null;
+    }
+  } catch(e) { return null; }
+}
+
 function irA(tab) {
   try {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('activo'));
@@ -865,11 +904,32 @@ function irA(tab) {
     const modEl = document.getElementById('mod-'+tab);
     if (tabEl) tabEl.classList.add('activo');
     if (modEl) modEl.classList.add('activo');
-    renderMod(tab);
+
+    // Lazy + cache: solo renderizar si es necesario
+    const firmaActual = _firma(tab);
+    const debeRender = _siempreRender.has(tab)
+      || firmaActual === null
+      || _renderCache[tab] !== firmaActual;
+
+    if (debeRender) {
+      renderMod(tab);
+      if (firmaActual !== null) _renderCache[tab] = firmaActual;
+    }
   } catch(err) {
     console.error('Error en irA('+tab+'):', err);
   }
 }
+
+// Llamar esto después de cualquier operación que modifique datos,
+// para que el próximo acceso al módulo fuerze un re-render.
+function invalidarCache(...tabs) {
+  if (tabs.length === 0) {
+    Object.keys(_renderCache).forEach(k => delete _renderCache[k]);
+  } else {
+    tabs.forEach(k => delete _renderCache[k]);
+  }
+}
+
 function renderMod(tab) {
   if(tab==='inicio') renderInicio();
   else if(tab==='articulos') renderArts();
