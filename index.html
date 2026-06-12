@@ -217,6 +217,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
       <thead><tr><th style="width:30px"></th><th>Cód.</th><th>Nombre</th><th>Categoría</th><th>Costo</th><th>L1</th><th>L2</th><th>L3</th><th>Mayor</th><th>C.Mayor</th><th>Stock</th><th>Control</th><th>Acciones</th></tr></thead>
       <tbody id="tart"></tbody>
     </table></div>
+  <div id="pg-arts"></div>
   </div>
 </div>
 
@@ -274,6 +275,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
       <thead><tr><th>#</th><th>Fecha</th><th>Proveedor</th><th>N° Factura</th><th>Total</th><th>Acción</th></tr></thead>
       <tbody id="tcomp"></tbody>
     </table></div>
+  <div id="pg-comps"></div>
   </div>
 </div>
 
@@ -316,6 +318,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
           <thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Total</th><th>Pago</th><th>Ver</th></tr></thead>
           <tbody id="thist"></tbody>
         </table></div>
+      <div id="pg-hist"></div>
       </div>
     </div>
     <div class="ticket">
@@ -431,6 +434,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
       <thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th>Método</th><th>Monto</th><th>Impacto Caja</th><th>Acción</th></tr></thead>
       <tbody id="tgastos"></tbody>
     </table></div>
+  <div id="pg-gastos"></div>
   </div>
 </div>
 
@@ -450,6 +454,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
       <thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Debe</th><th>Haber</th><th>Saldo</th></tr></thead>
       <tbody id="tdiario"></tbody>
     </table></div>
+  <div id="pg-diario"></div>
   </div>
 </div>
 
@@ -475,6 +480,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
         <thead><tr><th>Fecha/Hora</th><th>Evento</th><th>Detalle</th><th>Usuario</th><th>Estado</th></tr></thead>
         <tbody id="tbita"></tbody>
       </table></div>
+      <div id="pg-bita"></div>
     </div>
   </div>
 </div>
@@ -639,6 +645,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
       <thead><tr><th style="width:30px"></th><th>Código</th><th>Nombre</th><th>Categoría</th><th>Costo</th><th>% L1</th><th>Precio L1</th><th>% L2</th><th>Precio L2</th><th>% L3</th><th>Precio L3</th><th>% Mayor</th><th>Precio Mayor</th></tr></thead>
       <tbody id="tprecios"></tbody>
     </table></div>
+  <div id="pg-precios"></div>
   </div>
 </div>
 
@@ -849,6 +856,46 @@ function saveDB() {
   }
 }
 function nid(k) { const id=DB.ids[k]; DB.ids[k]++; saveDB(); return id; }
+// ═══════════════════════ PAGINACIÓN ═══════════════════════
+const PG_SIZE = 25;
+const _pags = {};
+function pgActual(mod) { return _pags[mod] || 1; }
+
+function paginar(mod, items) {
+  var total = items.length;
+  var totalPags = Math.max(1, Math.ceil(total / PG_SIZE));
+  var pag = Math.min(_pags[mod] || 1, totalPags);
+  _pags[mod] = pag;
+  var slice = items.slice((pag-1)*PG_SIZE, pag*PG_SIZE);
+  var nav = '';
+  if (totalPags > 1) {
+    var desde = (pag-1)*PG_SIZE + 1;
+    var hasta = Math.min(pag*PG_SIZE, total);
+    var nums = Array.from({length:totalPags}, function(_,i){return i+1;})
+      .filter(function(p){return p===1||p===totalPags||Math.abs(p-pag)<=2;});
+    var btnPags = '';
+    for(var bi=0;bi<nums.length;bi++){
+      var p=nums[bi];
+      if(bi>0&&p-nums[bi-1]>1) btnPags+='<span style="color:var(--gris);padding:0 4px">…</span>';
+      btnPags+='<button class="btn bsm '+(p===pag?'bv':'bg')+'" onclick="pgIr(\''+mod+'\','+p+')">'+p+'</button>';
+    }
+    nav='<div style="display:flex;align-items:center;gap:8px;padding:10px 4px;font-size:13px;flex-wrap:wrap;border-top:1px solid #eee;margin-top:6px">'
+      +'<span style="color:var(--gris);font-size:12px">'+desde+'–'+hasta+' de '+total+'</span>'
+      +'<div style="display:flex;gap:4px;margin-left:auto;flex-wrap:wrap">'
+      +(pag>1?'<button class="btn bg bsm" onclick="pgIr(\''+mod+'\',1)">«</button>'
+             +'<button class="btn bg bsm" onclick="pgIr(\''+mod+'\','+(pag-1)+')">‹</button>':'')
+      +btnPags
+      +(pag<totalPags?'<button class="btn bg bsm" onclick="pgIr(\''+mod+'\','+(pag+1)+')">›</button>'
+                     +'<button class="btn bg bsm" onclick="pgIr(\''+mod+'\','+totalPags+')">»</button>':'')
+      +'</div></div>';
+  }
+  return { slice: slice, nav: nav, total: total, totalPags: totalPags, pag: pag };
+}
+
+const _pgRender = {};
+function pgIr(mod, n) { _pags[mod] = n; if(_pgRender[mod]) _pgRender[mod](); }
+
+
 
 // ═══════════════════════ UTILS ═══════════════════════
 // Formateadores creados UNA SOLA VEZ y reutilizados (47x más rápido que toLocaleString por llamada)
@@ -1049,14 +1096,19 @@ function renderArts(lista) {
   const fp = document.getElementById('fprov');
   if(fp) { const cv=fp.value; fp.innerHTML='<option value="">Todos los proveedores</option>'+provs.map(p=>'<option value="'+p+'" '+(p===cv?'selected':'')+'>'+p+'</option>').join(''); }
   const tb = document.getElementById('tart');
-  if(!arts.length) { tb.innerHTML='<tr><td colspan="13"><div class="vacio"><div class="vi">📦</div><p>Sin artículos que coincidan</p></div></td></tr>'; actualizarContador(); return; }
-  tb.innerHTML = arts.map(a=>{
+  const pgEl = document.getElementById('pg-arts');
+  if(!arts.length) { tb.innerHTML='<tr><td colspan="13"><div class="vacio"><div class="vi">📦</div><p>Sin artículos que coincidan</p></div></td></tr>'; if(pgEl)pgEl.innerHTML=''; actualizarContador(); return; }
+  const { slice, nav } = paginar('arts', arts);
+  tb.innerHTML = slice.map(a=>{
     const l1=fmt(pxc(a.cos,a.u1)),l2=fmt(pxc(a.cos,a.u2)),l3=fmt(pxc(a.cos,a.u3)),lm=fmt(pxc(a.cos,a.um));
     const sb=a.stk<=0?'br2':a.stk<=a.stkmin?'ba2':'bv2';
     return '<tr ondblclick="editArt('+a.id+')" style="cursor:pointer"><td onclick="event.stopPropagation()"><input type="checkbox" class="art-chk" value="'+a.id+'" onchange="actualizarContador()"></td><td><span class="bdg bv2">'+a.cod+'</span></td><td><strong>'+a.nom+'</strong></td><td>'+(a.cat||'-')+'</td><td>'+fmt(a.cos)+'</td><td>'+l1+'</td><td>'+l2+'</td><td>'+l3+'</td><td class="tt2">'+lm+'</td><td>>='+a.cm+'</td><td><span class="bdg '+sb+'">'+a.stk+' '+a.uni+'</span></td><td><span class="bdg '+(a.usastk==='no'?'bt2':'bv2')+'">'+(a.usastk==='no'?'Libre':'Con stk')+'</span></td><td style="white-space:nowrap" onclick="event.stopPropagation()"><button class="btn bg bsm" onclick="editArt('+a.id+')">✏️</button> <button class="btn br bsm" onclick="delArt('+a.id+')">🗑️</button></td></tr>';
   }).join('');
+  if(pgEl) pgEl.innerHTML = nav;
   actualizarContador();
 }
+_pgRender['arts'] = () => renderArts(_artsFiltradas);
+let _artsFiltradas = null;
 function actualizarContador() {
   const sel = document.querySelectorAll('.art-chk:checked').length;
   const cnt = document.getElementById('sel-count');
@@ -1092,7 +1144,7 @@ function filtArt() {
   const cat=document.getElementById('fcat').value;
   const provNom=document.getElementById('fprov').value;
   const stk=document.getElementById('fstk').value;
-  renderArts(DB.arts.filter(function(a){
+  _artsFiltradas = DB.arts.filter(function(a){
     if(q && !a.nom.toLowerCase().includes(q) && !a.cod.toLowerCase().includes(q)) return false;
     if(cat && a.cat!==cat) return false;
     if(provNom){const p=DB.provs.find(function(x){return x.id==a.provid;});if(!p||p.nom!==provNom) return false;}
@@ -1100,7 +1152,9 @@ function filtArt() {
     if(stk==='sin' && a.stk>0) return false;
     if(stk==='libre' && a.usastk!=='no') return false;
     return true;
-  }));
+  });
+  _pags['arts'] = 1;
+  renderArts(_artsFiltradas);
 }
 function calcPrecios() {
   const c=parseFloat(document.getElementById('art-cos').value)||0;
@@ -1209,9 +1263,14 @@ async function delUsr(id){if(id===1){toast('No podés eliminar el admin','r');re
 let itemsComp=[];
 function renderComps(){
   const tb=document.getElementById('tcomp');
-  if(!DB.comps.length){tb.innerHTML='<tr><td colspan="6"><div class="vacio"><div class="vi">🛒</div><p>Sin compras</p></div></td></tr>';return;}
-  tb.innerHTML=[...DB.comps].reverse().map(c=>'<tr><td>'+c.id+'</td><td>'+fleg(c.fecha)+'</td><td>'+(c.provnom||'-')+'</td><td>'+(c.nro||'-')+'</td><td class="tv">'+fmt(c.total)+'</td><td><button class="btn br bsm" onclick="delComp('+c.id+')">🗑️</button></td></tr>').join('');
+  const pgEl=document.getElementById('pg-comps');
+  const items=[...DB.comps].reverse();
+  if(!items.length){tb.innerHTML='<tr><td colspan="6"><div class="vacio"><div class="vi">🛒</div><p>Sin compras</p></div></td></tr>';if(pgEl)pgEl.innerHTML='';return;}
+  const {slice,nav}=paginar('comps',items);
+  tb.innerHTML=slice.map(c=>'<tr><td>'+c.id+'</td><td>'+fleg(c.fecha)+'</td><td>'+(c.provnom||'-')+'</td><td>'+(c.nro||'-')+'</td><td class="tv">'+fmt(c.total)+'</td><td><button class="btn br bsm" onclick="delComp('+c.id+')">🗑️</button></td></tr>').join('');
+  if(pgEl)pgEl.innerHTML=nav;
 }
+_pgRender['comps'] = renderComps;
 function abrirCompra(){itemsComp=[];document.getElementById('cfecha').value=hoy();document.getElementById('cnro').value='';const sp=document.getElementById('cprov');sp.innerHTML=DB.provs.length?DB.provs.map(p=>'<option value="'+p.id+'">'+p.nom+'</option>').join(''):'<option>Sin proveedores</option>';const sa=document.getElementById('cart');sa.innerHTML=DB.arts.length?DB.arts.map(a=>'<option value="'+a.id+'">'+a.nom+'</option>').join(''):'<option>Sin artículos</option>';renderItemsComp();abrir('m-compra');}
 function addItemComp(){const aid=parseInt(document.getElementById('cart').value);const cant=parseFloat(document.getElementById('ccant').value)||1;const cos=parseFloat(document.getElementById('ccosto').value)||0;const art=DB.arts.find(a=>a.id===aid);if(!art)return;itemsComp.push({aid,nom:art.nom,cant,cos,sub:cant*cos});renderItemsComp();}
 function renderItemsComp(){const tb=document.getElementById('titemscomp');let tot=0;if(!itemsComp.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:12px;color:#999">Agregá artículos</td></tr>';}else{tb.innerHTML=itemsComp.map((it,i)=>{tot+=it.sub;return '<tr><td>'+it.nom+'</td><td>'+it.cant+'</td><td>'+fmt(it.cos)+'</td><td>'+fmt(it.sub)+'</td><td><button class="btn br bsm" onclick="quitItemComp('+i+')">✕</button></td></tr>';}).join('');}document.getElementById('ctotal').textContent=fmt(tot);}
@@ -1408,9 +1467,14 @@ function cobrarVenta(){
 }
 function renderHist(){
   const tb=document.getElementById('thist');
-  if(!DB.ventas.length){tb.innerHTML='<tr><td colspan="6"><div class="vacio"><div class="vi">📋</div><p>Sin ventas</p></div></td></tr>';return;}
-  tb.innerHTML=[...DB.ventas].reverse().slice(0,30).map(function(v){return '<tr><td>#'+v.id+'</td><td>'+fleg(v.fecha)+' '+(v.hora||'')+'</td><td>'+v.clinom+'</td><td class="tv">'+fmt(v.total)+'</td><td><span class="bdg bt2">'+v.pago+'</span></td><td><button class="btn bg bsm" onclick="verVenta('+v.id+')">👁️</button></td></tr>';}).join('');
+  const pgEl=document.getElementById('pg-hist');
+  const items=[...DB.ventas].reverse();
+  if(!items.length){tb.innerHTML='<tr><td colspan="6"><div class="vacio"><div class="vi">📋</div><p>Sin ventas</p></div></td></tr>';if(pgEl)pgEl.innerHTML='';return;}
+  const {slice,nav}=paginar('hist',items);
+  tb.innerHTML=slice.map(function(v){return '<tr><td>#'+v.id+'</td><td>'+fleg(v.fecha)+' '+(v.hora||'')+'</td><td>'+v.clinom+'</td><td class="tv">'+fmt(v.total)+'</td><td><span class="bdg bt2">'+v.pago+'</span></td><td><button class="btn bg bsm" onclick="verVenta('+v.id+')">👁️</button></td></tr>';}).join('');
+  if(pgEl)pgEl.innerHTML=nav;
 }
+_pgRender['hist'] = renderHist;
 function verVenta(id){
   ventaActual=DB.ventas.find(function(x){return x.id===id;});if(!ventaActual)return;
   const v=ventaActual;
@@ -1592,9 +1656,14 @@ function exportDetalle(){const t=document.querySelector('#mscont table');if(!t){
 function renderGastos(){
   document.getElementById('gfecha').value=hoy();
   const tb=document.getElementById('tgastos');
-  if(!DB.gastos.length){tb.innerHTML='<tr><td colspan="7"><div class="vacio"><div class="vi">📋</div><p>Sin gastos</p></div></td></tr>';return;}
-  tb.innerHTML=[...DB.gastos].reverse().map(function(g){const ef=g.met!=='transferencia';return '<tr><td>'+fleg(g.fecha)+'</td><td><span class="bdg bt2">'+g.cat+'</span></td><td>'+(g.desc||'-')+'</td><td><span class="bdg '+(ef?'bv2':'ba2')+'">'+(ef?'Efectivo':'Transferencia')+'</span></td><td class="tr2">'+fmt(g.monto)+'</td><td><span class="bdg '+(ef?'br2':'ba2')+'">'+(ef?'Descuenta':'No descuenta')+'</span></td><td><button class="btn br bsm" onclick="delGasto('+g.id+')">Del</button></td></tr>';}).join('');
+  const pgEl=document.getElementById('pg-gastos');
+  const items=[...DB.gastos].reverse();
+  if(!items.length){tb.innerHTML='<tr><td colspan="7"><div class="vacio"><div class="vi">📋</div><p>Sin gastos</p></div></td></tr>';if(pgEl)pgEl.innerHTML='';return;}
+  const {slice,nav}=paginar('gastos',items);
+  tb.innerHTML=slice.map(function(g){const ef=g.met!=='transferencia';return '<tr><td>'+fleg(g.fecha)+'</td><td><span class="bdg bt2">'+g.cat+'</span></td><td>'+(g.desc||'-')+'</td><td><span class="bdg '+(ef?'bv2':'ba2')+'">'+(ef?'Efectivo':'Transferencia')+'</span></td><td class="tr2">'+fmt(g.monto)+'</td><td><span class="bdg '+(ef?'br2':'ba2')+'">'+(ef?'Descuenta':'No descuenta')+'</span></td><td><button class="btn br bsm" onclick="delGasto('+g.id+')">Del</button></td></tr>';}).join('');
+  if(pgEl)pgEl.innerHTML=nav;
 }
+_pgRender['gastos'] = renderGastos;
 function regGasto(){
   const monto=parseFloat(document.getElementById('gmonto').value);const fecha=document.getElementById('gfecha').value;const met=document.getElementById('gmet').value;
   if(isNaN(monto)||monto<=0){toast('Monto invalido','a');return;}
@@ -1631,7 +1700,15 @@ function renderConta(){
   const todos=[...vm.map(function(v){return{fecha:v.fecha,tipo:'Venta',desc:'#'+v.id+' '+v.clinom,debe:0,haber:v.total};}), ...cm.map(function(c){return{fecha:c.fecha,tipo:'Compra',desc:(c.provnom||'-'),debe:c.total,haber:0};}), ...gm.map(function(g){return{fecha:g.fecha,tipo:'Gasto',desc:g.cat,debe:g.monto,haber:0};})].sort(function(a,b){return a.fecha.localeCompare(b.fecha);});
   let saldo=0;const td=document.getElementById('tdiario');
   if(!todos.length){td.innerHTML='<tr><td colspan="6"><div class="vacio"><div class="vi">📒</div><p>Sin movimientos</p></div></td></tr>';return;}
-  td.innerHTML=todos.map(function(m){saldo+=m.haber-m.debe;return '<tr><td>'+fleg(m.fecha)+'</td><td>'+m.tipo+'</td><td>'+m.desc+'</td><td class="'+(m.debe?'tr2':'')+'">'+( m.debe?fmt(m.debe):'-')+'</td><td class="'+(m.haber?'tv':'')+'">'+( m.haber?fmt(m.haber):'-')+'</td><td class="'+(saldo>=0?'tv':'tr2')+'">'+fmt(saldo)+'</td></tr>';}).join('');
+  const pgElD=document.getElementById('pg-diario');
+  const {slice:sliceDiario,nav:navDiario}=paginar('diario',todos);
+  sliceDiario.forEach(function(m){saldo+=m.haber-m.debe;});
+  // recalcular saldo desde el inicio de la página
+  let saldoBase=0;
+  todos.slice(0,((_pags['diario']||1)-1)*PG_SIZE).forEach(function(m){saldoBase+=m.haber-m.debe;});
+  let saldoPag=saldoBase;
+  td.innerHTML=sliceDiario.map(function(m){saldoPag+=m.haber-m.debe;return '<tr><td>'+fleg(m.fecha)+'</td><td>'+m.tipo+'</td><td>'+m.desc+'</td><td class="'+(m.debe?'tr2':'')+'">'+( m.debe?fmt(m.debe):'-')+'</td><td class="'+(m.haber?'tv':'')+'">'+( m.haber?fmt(m.haber):'-')+'</td><td class="'+(saldoPag>=0?'tv':'tr2')+'">'+fmt(saldoPag)+'</td></tr>';}).join('');
+  if(pgElD)pgElD.innerHTML=navDiario;
 }
 
 // TECLADO - atajos dentro de cada modulo
@@ -1744,10 +1821,14 @@ function renderBitacora() {
     'venta_borrada':'🗑️ Venta borrada','gasto_borrado':'🗑️ Gasto borrado',
     'art_borrado':'🗑️ Artículo borrado','comp_borrada':'🗑️ Compra borrada'
   };
-  tb.innerHTML = lista.map(function(b){
+  const pgEl=document.getElementById('pg-bita');
+  const {slice,nav}=paginar('bita',lista);
+  tb.innerHTML = slice.map(function(b){
     return '<tr><td>'+b.fecha+' '+b.hora+'</td><td><span class="bdg br2">'+(tipos[b.tipo]||b.tipo)+'</span></td><td style="font-size:12px">'+b.detalle+'</td><td>Admin</td><td><span class="bdg ba2">'+b.estado+'</span></td></tr>';
   }).join('');
+  if(pgEl)pgEl.innerHTML=nav;
 }
+_pgRender['bita'] = renderBitacora;
 
 // =================== IMPORTAR / EXPORTAR ===================
 function renderImportar() {}
@@ -2081,8 +2162,10 @@ function getPreciosFiltrados() {
 function renderPreciosFiltro() {
   var arts = getPreciosFiltrados();
   var tb = document.getElementById('tprecios');
-  if(!arts.length){tb.innerHTML='<tr><td colspan="13"><div class="vacio"><div class="vi">💲</div><p>Sin artículos</p></div></td></tr>';return;}
-  tb.innerHTML = arts.map(function(a){
+  var pgEl = document.getElementById('pg-precios');
+  if(!arts.length){tb.innerHTML='<tr><td colspan="13"><div class="vacio"><div class="vi">💲</div><p>Sin artículos</p></div></td></tr>';if(pgEl)pgEl.innerHTML='';return;}
+  var pg=paginar('precios',arts);
+  tb.innerHTML = pg.slice.map(function(a){
     return '<tr>' +
       '<td><input type="checkbox" class="prec-chk" value="'+a.id+'" onchange="actualizarContadorPrecios()"></td>' +
       '<td><span class="bdg bv2">'+a.cod+'</span></td>' +
@@ -2099,8 +2182,10 @@ function renderPreciosFiltro() {
       '<td class="tt2">'+fmt(pxc(a.cos,a.um))+'</td>' +
     '</tr>';
   }).join('');
+  if(pgEl)pgEl.innerHTML=pg.nav;
   actualizarContadorPrecios();
 }
+_pgRender['precios'] = renderPreciosFiltro;
 
 function actualizarPrecioArt(input) {
   var id = parseInt(input.getAttribute('data-id'));
