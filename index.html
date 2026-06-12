@@ -307,10 +307,11 @@ tbody td{padding:9px 13px;vertical-align:middle;}
             </div>
           </div>
         </div>
-        <div class="twrap" style="max-height:280px;overflow-y:auto">
+        <div class="twrap">
           <table><thead><tr><th>Código</th><th>Nombre</th><th>Stock</th><th>Precio</th><th>Acción</th></tr></thead>
           <tbody id="tpvart"></tbody></table>
         </div>
+        <div id="pg-pv"></div>
       </div>
       <div class="panel">
         <div class="ptit">📋 Historial de Ventas</div>
@@ -861,16 +862,17 @@ const PG_SIZE = 25;
 const _pags = {};
 function pgActual(mod) { return _pags[mod] || 1; }
 
-function paginar(mod, items) {
+function paginar(mod, items, pgSize) {
+  var PG_SZ = pgSize || PG_SIZE;
   var total = items.length;
-  var totalPags = Math.max(1, Math.ceil(total / PG_SIZE));
+  var totalPags = Math.max(1, Math.ceil(total / PG_SZ));
   var pag = Math.min(_pags[mod] || 1, totalPags);
   _pags[mod] = pag;
-  var slice = items.slice((pag-1)*PG_SIZE, pag*PG_SIZE);
+  var slice = items.slice((pag-1)*PG_SZ, pag*PG_SZ);
   var nav = '';
   if (totalPags > 1) {
-    var desde = (pag-1)*PG_SIZE + 1;
-    var hasta = Math.min(pag*PG_SIZE, total);
+    var desde = (pag-1)*PG_SZ + 1;
+    var hasta = Math.min(pag*PG_SZ, total);
     var nums = Array.from({length:totalPags}, function(_,i){return i+1;})
       .filter(function(p){return p===1||p===totalPags||Math.abs(p-pag)<=2;});
     var btnPags = '';
@@ -1292,17 +1294,26 @@ function renderVentas(){
   renderPVArts();renderHist();
   setTimeout(function(){const b=document.getElementById('pvbus');if(b)b.focus();},100);
 }
+let _pvArts = null; // lista filtrada actual del PV
+
 function renderPVArts(lista){
-  const arts=lista||DB.arts;const L=document.getElementById('pvlista').value;
+  _pvArts = lista !== undefined ? lista : DB.arts;
+  const arts = _pvArts;
+  const L=document.getElementById('pvlista').value;
   const tb=document.getElementById('tpvart');
-  if(!arts.length){tb.innerHTML='<tr><td colspan="5"><div class="vacio"><div class="vi">📦</div><p>Sin artículos</p></div></td></tr>';_filaSelPV=-1;return;}
-  tb.innerHTML=arts.map(function(a,idx){
+  const pgEl=document.getElementById('pg-pv');
+  if(!arts.length){tb.innerHTML='<tr><td colspan="5"><div class="vacio"><div class="vi">📦</div><p>Sin artículos</p></div></td></tr>';if(pgEl)pgEl.innerHTML='';_filaSelPV=-1;return;}
+  const pg=paginar('pv',arts,20);
+  tb.innerHTML=pg.slice.map(function(a,idx){
     return '<tr id="pvrow-'+idx+'" class="pvfila" style="cursor:pointer" onclick="addTicket('+a.id+')" onmouseover="resaltarFila('+idx+')"><td><span class="bdg bv2">'+a.cod+'</span></td><td>'+a.nom+'</td><td><span class="bdg '+(a.stk>0?'bv2':'br2')+'">'+a.stk+'</span></td><td class="tv">'+fmt(getPrecio(a,L,1))+'</td><td><button class="btn bv bsm" onclick="event.stopPropagation();addTicket('+a.id+')">➕</button></td></tr>';
   }).join('');
+  if(pgEl)pgEl.innerHTML=pg.nav;
+  _filaSelPV=-1;
 }
-function filtPV(){_filaSelPV=-1;const q=document.getElementById('pvbus').value.toLowerCase();renderPVArts(DB.arts.filter(a=>a.nom.toLowerCase().includes(q)||a.cod.toLowerCase().includes(q)));}
+_pgRender['pv'] = function(){ renderPVArts(_pvArts); };
+function filtPV(){_filaSelPV=-1;_pags['pv']=1;const q=document.getElementById('pvbus').value.toLowerCase();renderPVArts(DB.arts.filter(a=>a.nom.toLowerCase().includes(q)||a.cod.toLowerCase().includes(q)));}
 function refrescaPV(){renderPVArts();recalc();}
-function limpiaPV(){document.getElementById('pvbus').value='';renderPVArts();document.getElementById('pvbus').focus();}
+function limpiaPV(){document.getElementById('pvbus').value='';_pags['pv']=1;renderPVArts();document.getElementById('pvbus').focus();}
 function pvEnter(){
   const q=document.getElementById('pvbus').value.trim();
   if(!q){if(ticket.length>0&&!_bloqCobro)iniciarCobro();return;}
