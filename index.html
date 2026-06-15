@@ -208,7 +208,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
       <label style="font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer">
         <input type="checkbox" id="sel-all" onchange="selPaginaActual(this)"> Esta página
       </label>
-      <button class="btn bg bsm" id="btn-sel-todas" onclick="selTodasLasPaginas()" style="font-size:12px">☑️ Todas las páginas</button>
+      <button class="btn bg bsm" onclick="selTodasLasPaginas()" style="font-size:12px">☑️ Todas las páginas</button>
       <button class="btn bg bsm" onclick="deselTodo()" style="font-size:12px">✕ Deseleccionar</button>
       <span id="sel-count" style="font-size:12px;color:var(--gris);font-weight:600">0 seleccionados</span>
       <button class="btn br bsm" onclick="borrarSeleccionados()">🗑️ Borrar seleccionados</button>
@@ -1115,7 +1115,6 @@ function renderArts(lista) {
 _pgRender['arts'] = () => renderArts(_artsFiltradas);
 let _artsFiltradas = null;
 
-// ── Selección multi-página ──────────────────────────────────────────
 const _selArt = new Set();
 
 function actualizarContador() {
@@ -1154,7 +1153,7 @@ function selTodasLasPaginas() {
   lista.forEach(function(a){ _selArt.add(a.id); });
   document.querySelectorAll('.art-chk').forEach(function(c){ c.checked = true; });
   actualizarContador();
-  toast(lista.length + ' artículo' + (lista.length!==1?'s':'') + ' seleccionado' + (lista.length!==1?'s':''), 'v');
+  toast(lista.length + ' articulo' + (lista.length!==1?'s':'') + ' seleccionado' + (lista.length!==1?'s':''), 'v');
 }
 
 function deselTodo() {
@@ -1181,30 +1180,30 @@ function limpiarFiltros() {
 
 async function borrarSeleccionados() {
   const ids = [..._selArt];
-  if(!ids.length){toast('Seleccioná al menos un artículo','a');return;}
-  if(!await confirmar('Vas a borrar '+ids.length+' artículo'+(ids.length!==1?'s':'')+'. ¿Confirmás?'))return;
+  if(!ids.length){toast('Selecciona al menos un articulo','a');return;}
+  if(!await confirmar('Vas a borrar '+ids.length+' articulo'+(ids.length!==1?'s':'')+'. Confirmas?'))return;
   DB.arts = DB.arts.filter(function(a){return !ids.includes(a.id);});
   _selArt.clear();
   saveDB(); filtArt();
-  toast(ids.length+' artículo'+(ids.length!==1?'s':'')+' eliminado'+(ids.length!==1?'s':'')+'.', 'v');
+  toast(ids.length+' articulo'+(ids.length!==1?'s':'')+' eliminado'+(ids.length!==1?'s':'')+'.', 'v');
 }
 
 async function borrarTodosLosArticulos() {
   const total = DB.arts.length;
-  if(!total){toast('No hay artículos para borrar','a');return;}
-  if(!await confirmar('⚠️ Esto borrará los '+total+' artículos del sistema. Esta acción no se puede deshacer. ¿Confirmás?'))return;
-  if(!await confirmar('⚠️ Segunda confirmación: ¿Seguro que querés borrar TODOS los artículos?'))return;
+  if(!total){toast('No hay articulos para borrar','a');return;}
+  if(!await confirmar('Esto borrara los '+total+' articulos del sistema. Confirmas?'))return;
+  if(!await confirmar('Segunda confirmacion: Seguro que queres borrar TODOS los articulos?'))return;
   DB.arts = [];
   DB.ids.art = 1;
   _selArt.clear();
   saveDB(); filtArt();
-  toast('Todos los artículos fueron eliminados.', 'v');
+  toast('Todos los articulos fueron eliminados.', 'v');
 }
 
 function editarSeleccionado() {
   const ids = [..._selArt];
-  if(!ids.length){toast('Seleccioná un artículo','a');return;}
-  if(ids.length>1){toast('Seleccioná solo uno para editar','a');return;}
+  if(!ids.length){toast('Selecciona un articulo','a');return;}
+  if(ids.length>1){toast('Selecciona solo uno para editar','a');return;}
   editArt(ids[0]);
 }
 function filtArt() {
@@ -1540,7 +1539,7 @@ function cobrarVenta(){
   const tf=fmt(tot);ticket=[];renderTicket();limpiaPV();
   document.getElementById('tdesc').value=0;document.getElementById('pvcli').value='';document.getElementById('pvlista').value='lista1';
   selPago('Efectivo');renderHist();renderPVArts();
-  toast('✅ Venta registrada — Total: '+tf,'v');
+  toast('Venta registrada — Total: '+tf,'v');
 }
 function renderHist(){
   const tb=document.getElementById('thist');
