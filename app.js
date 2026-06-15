@@ -723,8 +723,7 @@ function cobrarVenta(){
   const tf=fmt(tot);ticket=[];renderTicket();limpiaPV();
   document.getElementById('tdesc').value=0;document.getElementById('pvcli').value='';document.getElementById('pvlista').value='lista1';
   selPago('Efectivo');renderHist();renderPVArts();
-  toast('✅ Venta registrada
-Total: '+tf,'v');
+  toast('✅ Venta registrada — Total: '+tf,'v');
 }
 function renderHist(){
   const tb=document.getElementById('thist');
