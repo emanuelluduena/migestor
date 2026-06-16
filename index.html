@@ -1927,11 +1927,15 @@ function exportarArticulosCSV() {
 }
 
 function descargarPlantilla() {
-  const cols = ['codigo','nombre','categoria','unidad','proveedor','stock','stock_minimo','control_stock','costo','util_lista1','util_lista2','util_lista3','util_mayor','cant_mayor'];
-  const ejemplo = ['ART001','Arroz integral 1kg','Cereales','Kg','Proveedor Ejemplo','50','5','si','1200','30','25','20','15','2'];
-  let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="UTF-8"></head><body><table>';
+  const cols = ['codigo','nombre','categoria','unidad','proveedor','stock','stock_minimo','control_stock','costo','precio_lista1','precio_lista2','precio_lista3','precio_mayor','cant_mayor'];
+  const ejemplo = ['7798333090043','Arroz integral 1kg','Cereales','Kg','Proveedor Ejemplo','50','5','si','1200','1560','1400','1300','1100','2'];
+  let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="UTF-8"><style>td.cod{mso-number-format:"@";}</style></head><body><table>';
   html += '<tr>' + cols.map(function(c){return '<th style="background:#2d6a4f;color:white;font-weight:bold;padding:5px">'+c+'</th>';}).join('') + '</tr>';
-  html += '<tr>' + ejemplo.map(function(v){return '<td>'+v+'</td>';}).join('') + '</tr>';
+  html += '<tr>' + ejemplo.map(function(v,i){return i===0?'<td class="cod" style="mso-number-format:&quot;@&quot;">'+v+'</td>':'<td>'+v+'</td>';}).join('') + '</tr>';
+  // 100 filas vacías con columna código formateada como texto
+  for(var r=0;r<100;r++){
+    html += '<tr><td class="cod" style="mso-number-format:&quot;@&quot;"></td>' + cols.slice(1).map(function(){return '<td></td>';}).join('') + '</tr>';
+  }
   html += '</table><\/body><\/html>';
   const b = new Blob([html],{type:'application/vnd.ms-excel;charset=utf-8'});
   const u = URL.createObjectURL(b);
