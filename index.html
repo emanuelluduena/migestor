@@ -1562,7 +1562,7 @@ function imprimirTicket(){
   if(!ventaActual)return;const v=ventaActual;
   let items='';v.items.forEach(function(it){items+='<div>'+it.nom+'<br>  '+it.cant+' x '+fmt(it.precio)+' = '+fmt(it.precio*it.cant)+'</div>';});
   const w=window.open('','_blank','width=400,height=600');
-  w.document.write('<!DOCTYPE html><html><head><title>Ticket #'+v.id+'</title><style>body{font-family:monospace;font-size:13px;padding:18px;max-width:300px}h2{text-align:center}hr{border:1px dashed #999}.tot{font-size:15px;font-weight:bold}</style></head><body><h2>Almacen Natural</h2><hr><p>Ticket #'+v.id+' - '+fleg(v.fecha)+'</p><p>Cliente: '+v.clinom+'</p><hr>'+items+'<hr>'+(v.desc?'<p>Descuento: '+v.desc+'%</p>':'')+'<p class="tot">TOTAL: '+fmt(v.total)+'</p><p>Pago: '+v.pago+'</p><hr><p style="text-align:center">Gracias!</p></body></html>');
+  w.document.write('<!DOCTYPE html><html><head><title>Ticket #'+v.id+'</title><style>body{font-family:monospace;font-size:13px;padding:18px;max-width:300px}h2{text-align:center}hr{border:1px dashed #999}.tot{font-size:15px;font-weight:bold}</style></head><body><h2>Almacen Natural</h2><hr><p>Ticket #'+v.id+' - '+fleg(v.fecha)+'</p><p>Cliente: '+v.clinom+'</p><hr>'+items+'<hr>'+(v.desc?'<p>Descuento: '+v.desc+'%</p>':'')+'<p class="tot">TOTAL: '+fmt(v.total)+'</p><p>Pago: '+v.pago+'</p><hr><p style="text-align:center">Gracias!</p><\/body><\/html>');
   w.print();
 }
 
@@ -1918,7 +1918,7 @@ function exportarArticulosCSV() {
     const vals = [a.cod, a.nom, a.cat||'', a.uni||'Unidad', prov?prov.nom:'', a.stk||0, a.stkmin||0, a.usastk||'si', a.cos||0, a.u1||0, a.u2||0, a.u3||0, a.um||0, a.cm||2];
     html += '<tr>' + vals.map(function(v){return '<td>'+v+'</td>';}).join('') + '</tr>';
   });
-  html += '</table></body></html>';
+  html += '</table><\/body><\/html>';
   const b = new Blob([html],{type:'application/vnd.ms-excel;charset=utf-8'});
   const u = URL.createObjectURL(b);
   const a = document.createElement('a');
@@ -1932,7 +1932,7 @@ function descargarPlantilla() {
   let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="UTF-8"></head><body><table>';
   html += '<tr>' + cols.map(function(c){return '<th style="background:#2d6a4f;color:white;font-weight:bold;padding:5px">'+c+'</th>';}).join('') + '</tr>';
   html += '<tr>' + ejemplo.map(function(v){return '<td>'+v+'</td>';}).join('') + '</tr>';
-  html += '</table></body></html>';
+  html += '</table><\/body><\/html>';
   const b = new Blob([html],{type:'application/vnd.ms-excel;charset=utf-8'});
   const u = URL.createObjectURL(b);
   const a = document.createElement('a');
@@ -2154,7 +2154,7 @@ function descargarPlantillaFormulas() {
   }
   html += '</table>';
   html += '<br><p style="font-size:11px;color:#666">🟡 Amarillo = completar a mano &nbsp; 🟢 Verde = ya tiene valores (podés cambiarlos)</p>';
-  html += '</body></html>';
+  html += '<\/body><\/html>';
   const b = new Blob([html],{type:'application/vnd.ms-excel;charset=utf-8'});
   const u = URL.createObjectURL(b);
   const a = document.createElement('a');
@@ -2350,8 +2350,7 @@ function importarCSVPrecios() {
       var pm=parseFloat(g(v,'precio_mayor'))||0;
       var provNom=g(v,'proveedor');var provid=null;
       if(provNom){var pe=DB.provs.find(function(p){return p.nom.toLowerCase()===provNom.toLowerCase();});if(pe)provid=pe.id;else{var np={id:nid('prov'),nom:provNom,cuit:'',tel:'',email:'',dir:'',rub:'Importado',not:''};DB.provs.push(np);provid=np.id;}}
-      var calcPct=function(precio,costo){return (costo>0&&precio>0)?Math.round((precio/costo-1)*100):0;};
-      var nuevo={cod:cod,nom:nom,cat:g(v,'categoria')||'',uni:g(v,'unidad')||'Unidad',provid:provid,stk:parseFloat(g(v,'stock'))||0,stkmin:parseFloat(g(v,'stock_minimo'))||5,usastk:g(v,'control_stock')||'si',cos:costo,u1:calcPct(p1,costo),u2:calcPct(p2,costo),u3:calcPct(p3,costo),um:calcPct(pm,costo),p1:p1,p2:p2,p3:p3,pm:pm,cm:parseFloat(g(v,'cant_mayor'))||2};
+      var nuevo={cod:cod,nom:nom,cat:g(v,'categoria')||'',uni:g(v,'unidad')||'Unidad',provid:provid,stk:parseFloat(g(v,'stock'))||0,stkmin:parseFloat(g(v,'stock_minimo'))||5,usastk:g(v,'control_stock')||'si',cos:costo,u1:0,u2:0,u3:0,um:0,p1:p1,p2:p2,p3:p3,pm:pm,cm:parseFloat(g(v,'cant_mayor'))||2};
       var ex=DB.arts.find(function(a){return a.cod===cod;});
       if(ex){if(modo==='actualizar'){var ix=DB.arts.indexOf(ex);DB.arts[ix]=Object.assign({},ex,nuevo,{id:ex.id});act++;}}
       else{nuevo.id=nid('art');DB.arts.push(nuevo);agr++;}
