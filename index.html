@@ -311,7 +311,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
           </div>
         </div>
         <div class="twrap">
-          <table><thead><tr><th>Código</th><th>Nombre</th><th>Stock</th><th>Precio</th><th>Acción</th></tr></thead>
+          <table style="font-size:12px"><thead><tr><th>Cód</th><th>Nombre</th><th>Stk</th><th>L1</th><th>L2</th><th>L3</th><th>May</th><th></th></tr></thead>
           <tbody id="tpvart"></tbody></table>
         </div>
         <div id="pg-pv"></div>
@@ -1353,6 +1353,13 @@ let _filaSelPV=-1;
 
 function getPrecio(art,lista,cant){if(cant>=art.cm)return (art.um===0&&art.pm)?art.pm:pxc(art.cos,art.um);if(lista==='lista2')return (art.u2===0&&art.p2)?art.p2:pxc(art.cos,art.u2);if(lista==='lista3')return (art.u3===0&&art.p3)?art.p3:pxc(art.cos,art.u3);if(lista==='mayor')return (art.um===0&&art.pm)?art.pm:pxc(art.cos,art.um);return (art.u1===0&&art.p1)?art.p1:pxc(art.cos,art.u1);}
 
+function addTicketLista(id, lista){
+  const prev = document.getElementById('pvlista').value;
+  document.getElementById('pvlista').value = lista;
+  addTicket(id);
+  document.getElementById('pvlista').value = prev;
+}
+
 function renderVentas(){
   const sc=document.getElementById('pvcli');sc.innerHTML='<option value="">Consumidor Final</option>'+DB.clis.map(c=>'<option value="'+c.id+'">'+c.nom+'</option>').join('');
   sc.onchange=function(){const c=DB.clis.find(x=>x.id==this.value);if(c)document.getElementById('pvlista').value=c.lista||'lista1';};
@@ -1370,7 +1377,16 @@ function renderPVArts(lista){
   if(!arts.length){tb.innerHTML='<tr><td colspan="5"><div class="vacio"><div class="vi">📦</div><p>Sin artículos</p></div></td></tr>';if(pgEl)pgEl.innerHTML='';_filaSelPV=-1;return;}
   const pg=paginar('pv',arts,20);
   tb.innerHTML=pg.slice.map(function(a,idx){
-    return '<tr id="pvrow-'+idx+'" class="pvfila" style="cursor:pointer" onclick="addTicket('+a.id+')" onmouseover="resaltarFila('+idx+')"><td><span class="bdg bv2">'+a.cod+'</span></td><td>'+a.nom+'</td><td><span class="bdg '+(a.stk>0?'bv2':'br2')+'">'+a.stk+'</span></td><td class="tv">'+fmt(getPrecio(a,L,1))+'</td><td><button class="btn bv bsm" onclick="event.stopPropagation();addTicket('+a.id+')">➕</button></td></tr>';
+    return '<tr id="pvrow-'+idx+'" class="pvfila" style="cursor:pointer" onmouseover="resaltarFila('+idx+')">'+
+      '<td><span class="bdg bv2" style="font-size:11px">'+a.cod+'</span></td>'+
+      '<td style="font-size:12px">'+a.nom+'</td>'+
+      '<td><span class="bdg '+(a.stk>0?'bv2':'br2')+'" style="font-size:11px">'+a.stk+'</span></td>'+
+      '<td class="tv" style="font-size:12px"><button class="btn bv bsm" style="font-size:11px;padding:2px 6px" onclick="addTicketLista('+a.id+',\'lista1\')">'+fmt(getPrecio(a,'lista1',1))+'</button></td>'+
+      '<td class="tv" style="font-size:12px"><button class="btn bt bsm" style="font-size:11px;padding:2px 6px" onclick="addTicketLista('+a.id+',\'lista2\')">'+fmt(getPrecio(a,'lista2',1))+'</button></td>'+
+      '<td class="tv" style="font-size:12px"><button class="btn bg bsm" style="font-size:11px;padding:2px 6px" onclick="addTicketLista('+a.id+',\'lista3\')">'+fmt(getPrecio(a,'lista3',1))+'</button></td>'+
+      '<td class="tv" style="font-size:12px"><button class="btn" style="font-size:11px;padding:2px 6px;background:#8b5cf6;color:white;border-radius:6px" onclick="addTicketLista('+a.id+',\'mayor\')">'+fmt(getPrecio(a,'mayor',1))+'</button></td>'+
+      '<td><button class="btn bv bsm" onclick="addTicketLista('+a.id+',\''+L+'\')">➕</button></td>'+
+    '</tr>';
   }).join('');
   if(pgEl)pgEl.innerHTML=pg.nav;
   _filaSelPV=-1;
