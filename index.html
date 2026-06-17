@@ -684,6 +684,14 @@ tbody td{padding:9px 13px;vertical-align:middle;}
       </div>
     </div>
   </div>
+  <div class="panel" style="margin-top:20px">
+    <div class="ptit">🏷️ Categorías</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input type="text" id="cat-nueva" placeholder="Nueva categoría..." style="flex:1">
+      <button class="btn bv" onclick="agregarCategoria()">➕ Agregar</button>
+    </div>
+    <div id="cat-lista"></div>
+  </div>
 </div>
 </main>
 
@@ -2396,6 +2404,45 @@ function renderConfig() {
   } else {
     prev.innerHTML = '🌿';
   }
+  renderCategorias();
+}
+
+function renderCategorias() {
+  if(!DB.cats) DB.cats = [];
+  const cats = [...new Set([...DB.cats, ...DB.arts.map(a=>a.cat).filter(Boolean)])].sort();
+  DB.cats = cats;
+  const el = document.getElementById('cat-lista');
+  if(!el) return;
+  if(!cats.length){el.innerHTML='<p style="color:var(--gris);font-size:13px">Sin categorías todavía.</p>';return;}
+  el.innerHTML = cats.map(c=>
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--crema);border-radius:8px;margin-bottom:6px">'+
+    '<span style="font-size:14px">🏷️ '+c+'</span>'+
+    '<button class="btn br bsm" onclick="eliminarCategoria(\''+c+'\')">🗑️</button>'+
+    '</div>'
+  ).join('');
+}
+
+function agregarCategoria() {
+  const input = document.getElementById('cat-nueva');
+  const val = input.value.trim().toUpperCase();
+  if(!val){toast('Escribí una categoría','a');return;}
+  if(!DB.cats) DB.cats = [];
+  if(DB.cats.includes(val)){toast('Ya existe esa categoría','a');return;}
+  DB.cats.push(val);
+  DB.cats.sort();
+  input.value = '';
+  saveDB();
+  renderCategorias();
+  toast('Categoría agregada','v');
+}
+
+function eliminarCategoria(cat) {
+  const usada = DB.arts.some(a=>a.cat===cat);
+  if(usada){toast('No se puede eliminar, hay artículos con esa categoría','a');return;}
+  DB.cats = DB.cats.filter(c=>c!==cat);
+  saveDB();
+  renderCategorias();
+  toast('Categoría eliminada','v');
 }
 
 function guardarConfig() {
