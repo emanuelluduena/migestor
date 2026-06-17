@@ -2354,7 +2354,8 @@ function importarCSVPrecios() {
       var pm=parseFloat(g(v,'precio_mayor'))||0;
       var provNom=g(v,'proveedor');var provid=null;
       if(provNom){var pe=DB.provs.find(function(p){return p.nom.toLowerCase()===provNom.toLowerCase();});if(pe)provid=pe.id;else{var np={id:nid('prov'),nom:provNom,cuit:'',tel:'',email:'',dir:'',rub:'Importado',not:''};DB.provs.push(np);provid=np.id;}}
-      var nuevo={cod:cod,nom:nom,cat:g(v,'categoria')||'',uni:g(v,'unidad')||'Unidad',provid:provid,stk:parseFloat(g(v,'stock'))||0,stkmin:parseFloat(g(v,'stock_minimo'))||5,usastk:g(v,'control_stock')||'si',cos:costo,u1:0,u2:0,u3:0,um:0,p1:p1,p2:p2,p3:p3,pm:pm,cm:parseFloat(g(v,'cant_mayor'))||2};
+      var pct=function(p,c){return(c>0&&p>0)?Math.round((p/c-1)*100):0;};
+      var nuevo={cod:cod,nom:nom,cat:g(v,'categoria')||'',uni:g(v,'unidad')||'Unidad',provid:provid,stk:parseFloat(g(v,'stock'))||0,stkmin:parseFloat(g(v,'stock_minimo'))||5,usastk:g(v,'control_stock')||'si',cos:costo,u1:pct(p1,costo),u2:pct(p2,costo),u3:pct(p3,costo),um:pct(pm,costo),p1:p1,p2:p2,p3:p3,pm:pm,cm:parseFloat(g(v,'cant_mayor'))||2};
       var ex=DB.arts.find(function(a){return a.cod===cod;});
       if(ex){if(modo==='actualizar'){var ix=DB.arts.indexOf(ex);DB.arts[ix]=Object.assign({},ex,nuevo,{id:ex.id});act++;}}
       else{nuevo.id=nid('art');DB.arts.push(nuevo);agr++;}
