@@ -14,7 +14,7 @@ header{background:linear-gradient(135deg,var(--verde) 0%,var(--verde-claro) 100%
 .hlogo .nombre{font-family:'Fraunces',serif;font-size:20px;font-weight:700;}
 .hlogo .sub{font-size:11px;opacity:0.75;letter-spacing:0.5px;text-transform:uppercase;}
 .hinfo{display:flex;align-items:center;gap:18px;font-size:13px;opacity:0.9;}
-nav{background:var(--blanco);border-bottom:2px solid var(--verde-suave);display:flex;overflow-x:auto;gap:2px;padding:0 12px;scrollbar-width:none;}
+nav{background:var(--blanco);border-bottom:2px solid var(--verde-suave);display:flex;overflow-x:auto;gap:2px;padding:0 12px;scrollbar-width:none;position:sticky;top:62px;z-index:99;}
 nav::-webkit-scrollbar{display:none;}
 .tab{display:flex;flex-direction:column;align-items:center;padding:10px 14px 8px;cursor:pointer;border:none;background:none;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;color:var(--gris);white-space:nowrap;border-bottom:3px solid transparent;transition:all 0.2s;gap:2px;min-width:72px;}
 .tab .ti{font-size:18px;}
@@ -917,6 +917,17 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   </div>
 </div>
 
+<div id="m-det-turno" class="moverlay">
+  <div class="modal" style="max-width:700px">
+    <h2>🏦 <span id="det-turno-tit"></span></h2>
+    <div id="det-turno-cont"></div>
+    <div class="mfoot">
+      <button class="btn bg" onclick="cerrar('m-det-turno')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+
 <script>
 // ═══════════════════════ DB ═══════════════════════
 const SK = 'almacen_v2';
@@ -1737,13 +1748,16 @@ function renderCaja(){
   if(sinTurnoEl) sinTurnoEl.style.display=ta?'none':'block';
   if(conTurnoEl) conTurnoEl.style.display=ta?'block':'none';
   if(ta){
-    document.getElementById('caja-turno-badge').textContent='🔓 Turno abierto desde '+ta.apertura+' · '+ta.fecha;
+    document.getElementById('caja-turno-badge').innerHTML='🔓 Turno abierto desde '+ta.apertura+' · '+ta.fecha+
+  ' &nbsp;|&nbsp; Fondo: <strong>'+fmt(ta.fondo||0)+'</strong>'+
+  ' <button class="btn bg bsm" style="margin-left:8px" onclick="editarFondo()">✏️ Editar fondo</button>';
     const movTurno=DB.caja.filter(function(m){return m.turnoId===ta.id;});
     const venTurno=DB.ventas.filter(function(v){return v.turnoId===ta.id;});
     const venTotal=venTurno.reduce(function(s,v){return s+v.total;},0);
+const venEfectivo=venTurno.filter(function(v){return v.pago==='Efectivo';}).reduce(function(s,v){return s+v.total;},0);
     const ingEx=movTurno.filter(function(m){return m.tipo==='entrada';}).reduce(function(s,m){return s+m.monto;},0);
     const salEx=movTurno.filter(function(m){return m.tipo==='salida';}).reduce(function(s,m){return s+m.monto;},0);
-    const tot=(ta.fondo||0)+venTotal+ingEx-salEx;
+    const tot=(ta.fondo||0)+venEfectivo+ingEx-salEx;
     document.getElementById('cajres').innerHTML=
       '<div class="cajcard"><div class="cajmnt tv">'+fmt(venTotal)+'</div><div class="cajlbl">Ventas del turno</div></div>'+
       '<div class="cajcard"><div class="cajmnt" style="color:var(--verde-claro)">'+fmt(ingEx)+'</div><div class="cajlbl">Ingresos extra</div></div>'+
@@ -1775,11 +1789,12 @@ function renderCaja(){
     return '<div style="background:var(--crema);border-radius:10px;padding:14px;margin-bottom:10px;border-left:4px solid var(--verde-claro)">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'+
       '<div><span style="font-weight:700;font-size:14px">📅 '+t.fecha+'</span> <span style="color:var(--gris);font-size:12px">'+t.apertura+' → '+t.cierre+'</span></div>'+
-      '<div style="display:flex;gap:14px;font-size:13px">'+
+      '<div style="display:flex;gap:14px;font-size:13px;align-items:center">'+
       '<span>🎫 <strong>'+venT.length+'</strong> tickets</span>'+
       '<span class="tv">💰 <strong>'+fmt(venTotal)+'</strong> ventas</span>'+
       '<span class="tr2">📤 <strong>'+fmt(sal)+'</strong> egresos</span>'+
       '<span style="font-weight:700">🏦 <strong>'+fmt(tot)+'</strong> total</span>'+
+      '<button class="btn bg bsm" onclick="verDetalleTurno('+t.id+')">👁️ Ver detalle</button>'+
       '</div></div></div>';
   }).join('');
   } catch(err) { console.error('Error en renderCaja:', err); }
@@ -1792,25 +1807,41 @@ function abrirTurno(){
   saveDB();renderCaja();
   toast('Turno abierto','v');
 }
+function editarFondo(){
+  const ta=turnoActivo();
+  if(!ta)return;
+  const nuevo=parseFloat(prompt('Fondo inicial actual: '+fmt(ta.fondo||0)+'\nIngresá el nuevo monto:'));
+  if(isNaN(nuevo)||nuevo<0){toast('Monto inválido','a');return;}
+  ta.fondo=nuevo;
+  saveDB();
+  renderCaja();
+  toast('Fondo actualizado','v');
+}
+
 function cerrarTurno(){
   const ta=turnoActivo();
   if(!ta){toast('No hay turno abierto','a');return;}
-  // Calcular datos para el arqueo
   const venTurno=DB.ventas.filter(function(v){return v.turnoId===ta.id;});
   const movTurno=DB.caja.filter(function(m){return m.turnoId===ta.id;});
-  const pagos=['Efectivo','Transferencia','Débito','Crédito','Cuenta Corriente'];
   const ingEx=movTurno.filter(function(m){return m.tipo==='entrada';}).reduce(function(s,m){return s+m.monto;},0);
   const salEx=movTurno.filter(function(m){return m.tipo==='salida';}).reduce(function(s,m){return s+m.monto;},0);
+  const pagos=['Efectivo','Transferencia','Débito','Crédito','QR','Cuenta Corriente','Combinado'];
   let filas='';
   let totalSistema=0;
   pagos.forEach(function(p){
-    const monto=venTurno.filter(function(v){return v.pago===p;}).reduce(function(s,v){return s+v.total;},0);
-    if(monto===0)return;
+    let monto=0;
+    if(p==='Combinado'){
+      venTurno.filter(function(v){return v.pago==='Combinado'&&v.pagos;}).forEach(function(v){
+        v.pagos.forEach(function(pg){monto+=pg.monto;});
+      });
+    } else {
+      monto=venTurno.filter(function(v){return v.pago===p;}).reduce(function(s,v){return s+v.total;},0);
+    }
     totalSistema+=monto;
     filas+='<tr>'+
       '<td style="padding:8px 10px;font-size:13px">'+p+'</td>'+
       '<td style="padding:8px 10px;font-size:13px;color:var(--verde);font-weight:600">'+fmt(monto)+'</td>'+
-      '<td style="padding:8px 10px"><input type="number" class="arqueo-real" data-pago="'+p+'" data-sistema="'+monto+'" placeholder="0" style="width:120px;border:1.5px solid #e5e7eb;border-radius:6px;padding:5px 8px;font-size:13px" oninput="calcArqueo()"></td>'+
+      '<td style="padding:8px 10px"><input type="number" class="arqueo-real" data-pago="'+p.replace(/\s/g,'_')+'" data-sistema="'+monto+'" placeholder="0" style="width:110px;border:1.5px solid #e5e7eb;border-radius:6px;padding:5px 8px;font-size:13px" oninput="calcArqueo()"></td>'+
       '<td class="arqueo-dif-'+p.replace(/\s/g,'_')+'" style="padding:8px 10px;font-size:13px;font-weight:600">—</td>'+
     '</tr>';
   });
@@ -1826,6 +1857,60 @@ function cerrarTurno(){
   document.getElementById('arqueo-obs').value='';
   abrir('m-arqueo');
 }
+function verDetalleTurno(id){
+  const t=DB.turnos.find(function(x){return x.id===id;});
+  if(!t)return;
+  const movT=DB.caja.filter(function(m){return m.turnoId===id;});
+  const venT=DB.ventas.filter(function(v){return v.turnoId===id;});
+  const venTotal=venT.reduce(function(s,v){return s+v.total;},0);
+  const ing=movT.filter(function(m){return m.tipo==='entrada';}).reduce(function(s,m){return s+m.monto;},0);
+  const sal=movT.filter(function(m){return m.tipo==='salida';}).reduce(function(s,m){return s+m.monto;},0);
+  const tot=(t.fondo||0)+venTotal+ing-sal;
+  // Ventas por medio de pago
+  const pagos=['Efectivo','Transferencia','Débito','Crédito','QR','Cuenta Corriente','Combinado'];
+  let filasPago='';
+  pagos.forEach(function(p){
+    const monto=venT.filter(function(v){return v.pago===p;}).reduce(function(s,v){return s+v.total;},0);
+    if(monto===0)return;
+    filasPago+='<tr><td>'+p+'</td><td class="tv">'+fmt(monto)+'</td></tr>';
+  });
+  // Movimientos
+  let filasMovs='';
+  const todos=[
+    ...venT.map(function(v){return{hora:v.hora,tipo:'venta',desc:'Venta #'+v.id+' - '+v.clinom,monto:v.total,pos:true};}),
+    ...movT
+  ].sort(function(a,b){return (a.hora||'').localeCompare(b.hora||'');});
+  todos.forEach(function(m){
+    const esSalida=m.tipo==='salida';
+    filasMovs+='<tr><td>'+(m.hora||'-')+'</td><td><span class="bdg '+(esSalida?'br2':'bv2')+'">'+m.tipo+'</span></td><td>'+(m.desc||'-')+'</td><td class="'+(esSalida?'tr2':'tv')+'">'+(esSalida?'-':'')+fmt(m.monto)+'</td></tr>';
+  });
+  // Arqueo si existe
+  let arqueoHtml='';
+  if(t.arqueo){
+    arqueoHtml='<div class="stit" style="margin-top:14px">🔍 Arqueo de cierre</div>';
+    Object.entries(t.arqueo).forEach(function(e){
+      if(!e[1])return;
+      arqueoHtml+='<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span>'+e[0]+'</span><span class="tv">'+fmt(e[1])+'</span></div>';
+    });
+  }
+  if(t.obs) arqueoHtml+='<div style="margin-top:8px;font-size:12px;color:var(--gris)">📝 '+t.obs+'</div>';
+  document.getElementById('det-turno-cont').innerHTML=
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">'+
+    '<div class="scard"><div class="snum" style="font-size:16px">'+fmt(t.fondo||0)+'</div><div class="slbl">Fondo inicial</div></div>'+
+    '<div class="scard"><div class="snum" style="font-size:16px">'+fmt(venTotal)+'</div><div class="slbl">Ventas ('+venT.length+' tickets)</div></div>'+
+    '<div class="scard ti"><div class="snum" style="font-size:16px">'+fmt(sal)+'</div><div class="slbl">Egresos</div></div>'+
+    '<div class="scard" style="background:var(--verde-suave)"><div class="snum" style="font-size:16px">'+fmt(tot)+'</div><div class="slbl">Total en caja</div></div>'+
+    '</div>'+
+    '<div class="stit">💳 Ventas por medio de pago</div>'+
+    '<div class="twrap" style="margin-bottom:14px"><table><thead><tr><th>Medio</th><th>Total</th></tr></thead><tbody>'+filasPago+'</tbody></table></div>'+
+    '<div class="stit">📋 Movimientos del turno</div>'+
+    '<div class="twrap">'+
+    '<table><thead><tr><th>Hora</th><th>Tipo</th><th>Descripción</th><th>Monto</th></tr></thead><tbody>'+filasMovs+'</tbody></table></div>'+
+    arqueoHtml;
+  document.getElementById('det-turno-tit').textContent='Turno '+t.fecha+' · '+t.apertura+' → '+t.cierre;
+  abrir('m-det-turno');
+}
+
 function calcArqueo(){
   let totalReal=0;let todosCompletos=true;
   document.querySelectorAll('.arqueo-real').forEach(function(inp){
