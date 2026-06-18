@@ -1701,6 +1701,7 @@ function turnoActivo(){
   return DB.turnos.find(function(t){return !t.cierre;})||null;
 }
 function renderCaja(){
+  try {
   const ta=turnoActivo();
   // Alerta caja no cerrada ayer
   const ay=new Date();ay.setDate(ay.getDate()-1);
@@ -1764,6 +1765,7 @@ function renderCaja(){
       '<span style="font-weight:700">🏦 <strong>'+fmt(tot)+'</strong> total</span>'+
       '</div></div></div>';
   }).join('');
+  } catch(err) { console.error('Error en renderCaja:', err); }
 }
 function abrirTurno(){
   if(turnoActivo()){toast('Ya hay un turno abierto','a');return;}
@@ -2173,8 +2175,6 @@ function regBita(tipo, detalle, data) {
   if(DB.bitacora.length > 500) DB.bitacora = DB.bitacora.slice(0,500);
   saveDB();
 }
-
-if(!DB.turnos) DB.turnos = [];
 
 function renderBitacora() {
   const usr = DB.usrs.find(u => u.id === (DB.usuarioActual || 1));
@@ -2780,6 +2780,7 @@ document.getElementById('fhdr').textContent=new Date().toLocaleDateString('es-AR
 // Migrar datos viejos del localStorage si es necesario
 if(!DB.bitacora) DB.bitacora = [];
 if(!DB.ids) DB.ids = {art:1,prov:1,cli:1,usr:2,comp:1,venta:1,gasto:1,caja:1};
+if(!DB.turnos) DB.turnos = [];
 // Normalizar ventas viejas (campo clinom vs clienteNombre)
 DB.ventas.forEach(function(v){
   if(!v.clinom && v.clienteNombre) v.clinom = v.clienteNombre;
