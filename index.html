@@ -761,7 +761,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
     <div class="pit"><label>Lista 1 — %</label><input type="number" id="art-u1" value="30" oninput="calcPrecios()"><div class="pc" id="art-p1">Precio: $0,00</div></div>
     <div class="pit"><label>Lista 2 — %</label><input type="number" id="art-u2" value="25" oninput="calcPrecios()"><div class="pc" id="art-p2">Precio: $0,00</div></div>
     <div class="pit"><label>Lista 3 — %</label><input type="number" id="art-u3" value="20" oninput="calcPrecios()"><div class="pc" id="art-p3">Precio: $0,00</div></div>
-    <div class="pit may"><label>💼 Mayor — %</label><input type="number" id="art-um" value="15" oninput="calcPrecios()"><div class="pc" id="art-pm" style="color:var(--tierra)">Precio: $0,00</div><div style="margin-top:7px"><label style="font-size:10px;color:var(--tierra)">A partir de (cant.)</label><input type="number" id="art-cm" value="2" min="1" style="margin-top:3px"></div></div>
+    <div class="pit may"><label>💼 Mayor — %</label><input type="number" id="art-um" value="15" oninput="calcPrecios()"><div class="pc" id="art-pm" style="color:var(--tierra)">Precio: $0,00</div><div style="margin-top:7px"><label style="font-size:10px;color:var(--tierra)">A partir de (cant.)</label><input type="number" id="art-cm" value="2" min="1" style="margin-top:3px"></div><div style="margin-top:7px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="art-usapm" checked><label style="font-size:10px;color:var(--tierra)">Activar precio mayor</label></div>
   </div>
   <div class="mfoot"><button class="btn bg" onclick="cerrar('m-art')">Cancelar</button><button class="btn bv" onclick="guardarArt()">💾 Guardar</button></div>
 </div></div>
@@ -1317,6 +1317,7 @@ function editArt(id) {
   document.getElementById('art-u3').value=a.u3;
   document.getElementById('art-um').value=a.um;
   document.getElementById('art-cm').value=a.cm;
+  document.getElementById('art-usapm').checked=a.usapm!==false;
   const sp=document.getElementById('art-prov');
   sp.innerHTML='<option value="">Sin proveedor</option>'+DB.provs.map(p=>'<option value="'+p.id+'" '+(p.id==a.provid?'selected':'')+'>'+p.nom+'</option>').join('');
   calcPrecios(); abrir('m-art');
@@ -1338,6 +1339,7 @@ function guardarArt() {
     u3:parseFloat(document.getElementById('art-u3').value)||0,
     um:parseFloat(document.getElementById('art-um').value)||0,
     cm:parseFloat(document.getElementById('art-cm').value)||2,
+    usapm:document.getElementById('art-usapm').checked,
     provid:document.getElementById('art-prov').value||null
   };
   const eid=document.getElementById('art-id').value;
@@ -1405,7 +1407,13 @@ let ventaActual=null;
 let _bloqCobro=false;
 let _filaSelPV=-1;
 
-function getPrecio(art,lista,cant){if(cant>=art.cm)return (art.um===0&&art.pm)?art.pm:pxc(art.cos,art.um);if(lista==='lista2')return (art.u2===0&&art.p2)?art.p2:pxc(art.cos,art.u2);if(lista==='lista3')return (art.u3===0&&art.p3)?art.p3:pxc(art.cos,art.u3);if(lista==='mayor')return (art.um===0&&art.pm)?art.pm:pxc(art.cos,art.um);return (art.u1===0&&art.p1)?art.p1:pxc(art.cos,art.u1);}
+function getPrecio(art,lista,cant){
+  if(art.usapm!==false&&cant>=art.cm)return (art.um===0&&art.pm)?art.pm:pxc(art.cos,art.um);
+  if(lista==='lista2')return (art.u2===0&&art.p2)?art.p2:pxc(art.cos,a261_t.u2);
+  if(lista==='lista3')return (art.u3===0&&art.p3)?art.p3:pxc(art.cos,art.u3);
+  if(lista==='mayor')return (art.um===0&&art.pm)?art.pm:pxc(art.cos,art.um);
+  return (art.u1===0&&art.p1)?art.p1:pxc(art.cos,art.u1);
+}
 
 function addTicketLista(id, lista){
   const prev = document.getElementById('pvlista').value;
