@@ -1697,7 +1697,6 @@ function turnoActivo(){
 }
 function renderCaja(){
   const ta=turnoActivo();
-  // Alerta caja no cerrada ayer
   const ay=new Date();ay.setDate(ay.getDate()-1);
   const ayStr=ay.toISOString().slice(0,10);
   const tuvoCierre=DB.turnos.some(function(t){return t.fecha===ayStr&&t.cierre;});
@@ -1718,11 +1717,10 @@ function renderCaja(){
     const movTurno=DB.caja.filter(function(m){return m.turnoId===ta.id;});
     const venTurno=DB.ventas.filter(function(v){return v.turnoId===ta.id;});
     const venTotal=venTurno.reduce(function(s,v){return s+v.total;},0);
-const venEfectivo=venTurno.filter(function(v){return v.pago==='Efectivo';}).reduce(function(s,v){return s+v.total;},0);
-const ingEx=movTurno.filter(function(m){return m.tipo==='entrada';}).reduce(function(s,m){return s+m.monto;},0);
-const salEx=movTurno.filter(function(m){return m.tipo==='salida';}).reduce(function(s,m){return s+m.monto;},0);
-const gastosEfectivo=DB.gastos.filter(function(g){return g.met==='efectivo'&&g.fecha>=ta.fecha;}).reduce(function(s,g){return s+g.monto;},0);
-const tot=(ta.fondo||0)+venEfectivo+ingEx-salEx-gastosEfectivo;
+    const venEfectivo=venTurno.filter(function(v){return v.pago==='Efectivo';}).reduce(function(s,v){return s+v.total;},0);
+    const ingEx=movTurno.filter(function(m){return m.tipo==='entrada';}).reduce(function(s,m){return s+m.monto;},0);
+    const salEx=movTurno.filter(function(m){return m.tipo==='salida';}).reduce(function(s,m){return s+m.monto;},0);
+    const tot=(ta.fondo||0)+venEfectivo+ingEx-salEx;
     document.getElementById('cajres').innerHTML=
       '<div class="cajcard"><div class="cajmnt tv">'+fmt(venTotal)+'</div><div class="cajlbl">Ventas del turno</div></div>'+
       '<div class="cajcard"><div class="cajmnt" style="color:var(--verde-claro)">'+fmt(ingEx)+'</div><div class="cajlbl">Ingresos extra</div></div>'+
@@ -1740,7 +1738,6 @@ const tot=(ta.fondo||0)+venEfectivo+ingEx-salEx-gastosEfectivo;
       return '<tr><td>'+(m.hora||'-')+'</td><td><span class="bdg '+(esVenta?'bv2':esSalida?'br2':'bv2')+'">'+m.tipo+'</span></td><td>'+m.desc+'</td><td class="'+(esSalida?'tr2':'tv')+'">'+(esSalida?'-':'')+fmt(m.monto)+'</td></tr>';
     }).join('');
   }
-  // Historial de turnos cerrados
   const cerrados=[...DB.turnos].filter(function(t){return t.cierre;}).reverse();
   const hEl=document.getElementById('caja-historial');
   if(!cerrados.length){hEl.innerHTML='<div class="vacio"><div class="vi">📋</div><p>Sin turnos cerrados aún</p></div>';return;}
@@ -1762,6 +1759,7 @@ const tot=(ta.fondo||0)+venEfectivo+ingEx-salEx-gastosEfectivo;
       '</div></div></div>';
   }).join('');
 }
+
 function abrirTurno(){
   if(turnoActivo()){toast('Ya hay un turno abierto','a');return;}
   const fondo=parseFloat(document.getElementById('caja-fondo').value)||0;
