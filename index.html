@@ -358,29 +358,50 @@ tbody td{padding:9px 13px;vertical-align:middle;}
 </div>
 
 <div id="mod-caja" class="modulo">
-  <div class="cajres" id="cajres"></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
-    <div class="panel">
-      <div class="ptit">💵 Movimientos de Hoy</div>
-      <div class="twrap"><table><thead><tr><th>Hora</th><th>Tipo</th><th>Descripción</th><th>Monto</th></tr></thead><tbody id="tcajmov"></tbody></table></div>
-    </div>
-    <div class="panel">
-      <div class="ptit">⚙️ Registrar Movimiento</div>
-      <div class="fgrid" style="grid-template-columns:1fr">
-        <div class="fg"><label>Tipo</label>
-          <select id="cajt">
-            <option value="entrada">➕ Ingreso de efectivo (del cajero, etc.)</option>
-            <option value="salida">➖ Egreso de efectivo</option>
-            <option value="apertura">🔓 Apertura de caja</option>
-            <option value="cierre">🔒 Cierre de caja</option>
-          </select>
-        </div>
-        <div class="fg"><label>Monto ($)</label><input type="number" id="cajm" placeholder="0.00"></div>
-        <div class="fg"><label>Descripción</label><input type="text" id="cajd" placeholder="Descripción..."></div>
-        <button class="btn bv" onclick="regMovCaja()">✅ Registrar</button>
+  <div id="caja-alerta" class="alert ar" style="display:none;margin-bottom:14px"></div>
+  <div id="caja-sin-turno" style="display:none;text-align:center;padding:40px 20px">
+    <div style="font-size:48px;margin-bottom:12px">🏦</div>
+    <div style="font-size:18px;font-weight:700;color:var(--verde);margin-bottom:8px">No hay turno abierto</div>
+    <div style="font-size:13px;color:var(--gris);margin-bottom:20px">Abrí un turno para empezar a registrar movimientos</div>
+    <div style="display:flex;gap:10px;justify-content:center;align-items:center">
+      <div class="fg" style="max-width:180px">
+        <label style="font-size:11px;font-weight:700;color:var(--verde)">FONDO INICIAL ($)</label>
+        <input type="number" id="caja-fondo" placeholder="0.00" style="border:1.5px solid #e5e7eb;border-radius:6px;padding:7px 11px;font-size:14px;width:100%">
       </div>
-      <div class="alert av" style="margin-top:12px;font-size:12px">💡 Usá "Ingreso de efectivo" cuando ponés plata en la caja (cajero, fondo, etc.)</div>
+      <button class="btn bv" style="margin-top:18px" onclick="abrirTurno()">🔓 Abrir Turno</button>
     </div>
+  </div>
+  <div id="caja-con-turno" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+      <div id="caja-turno-badge" style="background:var(--verde-suave);color:var(--verde);padding:7px 16px;border-radius:20px;font-size:13px;font-weight:700"></div>
+      <button class="btn br" onclick="cerrarTurno()">🔒 Cerrar Turno</button>
+    </div>
+    <div class="cajres" id="cajres"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+      <div class="panel">
+        <div class="ptit">💵 Movimientos del Turno</div>
+        <div class="twrap"><table><thead><tr><th>Hora</th><th>Tipo</th><th>Descripción</th><th>Monto</th></tr></thead><tbody id="tcajmov"></tbody></table></div>
+      </div>
+      <div class="panel">
+        <div class="ptit">⚙️ Registrar Movimiento</div>
+        <div class="fgrid" style="grid-template-columns:1fr">
+          <div class="fg"><label>Tipo</label>
+            <select id="cajt">
+              <option value="entrada">➕ Ingreso de efectivo</option>
+              <option value="salida">➖ Egreso de efectivo</option>
+            </select>
+          </div>
+          <div class="fg"><label>Monto ($)</label><input type="number" id="cajm" placeholder="0.00"></div>
+          <div class="fg"><label>Descripción</label><input type="text" id="cajd" placeholder="Descripción..."></div>
+          <button class="btn bv" onclick="regMovCaja()">✅ Registrar</button>
+        </div>
+        <div class="alert av" style="margin-top:12px;font-size:12px">💡 Usá "Ingreso de efectivo" cuando ponés plata en la caja</div>
+      </div>
+    </div>
+  </div>
+  <div class="panel" style="margin-top:18px">
+    <div class="ptit">📋 Historial de Turnos</div>
+    <div id="caja-historial"></div>
   </div>
 </div>
 
@@ -1566,9 +1587,10 @@ function cobrarVenta(){
   const lista=document.getElementById('pvlista').value;
   const pago=document.getElementById('tpago').value;
   ticket.forEach(function(it){if(it.aid){const art=DB.arts.find(a=>a.id===it.aid);if(art)art.stk=Math.max(0,art.stk-it.cant);}});
-  const v={id:nid('venta'),fecha:hoy(),hora:hora(),cliid:cliid||null,clinom:cli?cli.nom:'Consumidor Final',lista,listaNom:lnom[lista]||lista,items:ticket.map(function(it){return Object.assign({},it);}),sub,desc,total:tot,pago};
+  const ta=turnoActivo();
+  const v={id:nid('venta'),fecha:hoy(),hora:hora(),cliid:cliid||null,clinom:cli?cli.nom:'Consumidor Final',lista,listaNom:lnom[lista]||lista,items:ticket.map(function(it){return Object.assign({},it);}),sub,desc,total:tot,pago,turnoId:ta?ta.id:null};
   DB.ventas.push(v);
-  if(pago!=='Cuenta Corriente')DB.caja.push({id:nid('caja'),fecha:hoy(),hora:hora(),tipo:'venta',desc:'Venta #'+v.id+' - '+v.clinom,monto:tot});
+  if(pago!=='Cuenta Corriente')DB.caja.push({id:nid('caja'),fecha:hoy(),hora:hora(),tipo:'venta',desc:'Venta #'+v.id+' - '+v.clinom,monto:tot,turnoId:ta?ta.id:null});
   saveDB();
   const tf=fmt(tot);ticket=[];renderTicket();limpiaPV();
   document.getElementById('tdesc').value=0;document.getElementById('pvcli').value='';document.getElementById('pvlista').value='lista1';
@@ -1600,25 +1622,104 @@ function imprimirTicket(){
   w.print();
 }
 
+// Alerta caja no cerrada ayer
+const ay=new Date();ay.setDate(ay.getDate()-1);
+const ayStr=ay.toISOString().slice(0,10);
+const tuvoCierre=DB.caja.some(function(m){return m.fecha===ayStr&&m.tipo==='cierre';});
+const tuvoMovAyer=DB.caja.some(function(m){return m.fecha===ayStr;});
+const alertaEl=document.getElementById('caja-alerta');
+if(alertaEl){
+  if(tuvoMovAyer&&!tuvoCierre){
+    alertaEl.style.display='block';
+    alertaEl.innerHTML='⚠️ No registraste el cierre de caja de ayer ('+ayStr+'). Te recomendamos cerrarlo antes de seguir.';
+  } else {
+    alertaEl.style.display='none';
+  }
+}
+
+
+
 // CAJA
+function turnoActivo(){
+  return DB.turnos.find(function(t){return !t.cierre;})||null;
+}
 function renderCaja(){
-  const mhoy=DB.caja.filter(function(m){return m.fecha===hoy();});
-  const venHoy=mhoy.filter(function(m){return m.tipo==='venta';}).reduce(function(s,m){return s+m.monto;},0);
-  const ingEx=mhoy.filter(function(m){return m.tipo==='entrada';}).reduce(function(s,m){return s+m.monto;},0);
-  const salEx=mhoy.filter(function(m){return m.tipo==='salida';}).reduce(function(s,m){return s+m.monto;},0);
-  const tot=venHoy+ingEx-salEx;
-  document.getElementById('cajres').innerHTML='<div class="cajcard"><div class="cajmnt tv">'+fmt(venHoy)+'</div><div class="cajlbl">Ventas de hoy</div></div><div class="cajcard"><div class="cajmnt" style="color:var(--verde-claro)">'+fmt(ingEx)+'</div><div class="cajlbl">Ingresos extra</div></div><div class="cajcard"><div class="cajmnt tr2">'+fmt(salEx)+'</div><div class="cajlbl">Egresos</div></div><div class="cajcard" style="background:var(--verde-suave)"><div class="cajmnt tv">'+fmt(tot)+'</div><div class="cajlbl">Total en Caja</div></div>';
-  const tb=document.getElementById('tcajmov');
-  const mr=[...DB.caja].filter(function(m){return m.fecha===hoy();}).reverse();
-  if(!mr.length){tb.innerHTML='<tr><td colspan="4"><div class="vacio"><div class="vi">🏦</div><p>Sin movimientos hoy</p></div></td></tr>';}
-  else tb.innerHTML=mr.map(function(m){return '<tr><td>'+(m.hora||'-')+'</td><td><span class="bdg '+(m.tipo==='salida'?'br2':'bv2')+'">'+m.tipo+'</span></td><td>'+m.desc+'</td><td class="'+(m.tipo==='salida'?'tr2':'tv')+'">'+(m.tipo==='salida'?'-':'')+fmt(m.monto)+'</td></tr>';}).join('');
+  const ta=turnoActivo();
+  document.getElementById('caja-sin-turno').style.display=ta?'none':'block';
+  document.getElementById('caja-con-turno').style.display=ta?'block':'none';
+  if(ta){
+    document.getElementById('caja-turno-badge').textContent='🔓 Turno abierto desde '+ta.apertura+' · '+ta.fecha;
+    const movTurno=DB.caja.filter(function(m){return m.turnoId===ta.id;});
+    const venTurno=DB.ventas.filter(function(v){return v.turnoId===ta.id;});
+    const venTotal=venTurno.reduce(function(s,v){return s+v.total;},0);
+    const ingEx=movTurno.filter(function(m){return m.tipo==='entrada';}).reduce(function(s,m){return s+m.monto;},0);
+    const salEx=movTurno.filter(function(m){return m.tipo==='salida';}).reduce(function(s,m){return s+m.monto;},0);
+    const tot=(ta.fondo||0)+venTotal+ingEx-salEx;
+    document.getElementById('cajres').innerHTML=
+      '<div class="cajcard"><div class="cajmnt tv">'+fmt(venTotal)+'</div><div class="cajlbl">Ventas del turno</div></div>'+
+      '<div class="cajcard"><div class="cajmnt" style="color:var(--verde-claro)">'+fmt(ingEx)+'</div><div class="cajlbl">Ingresos extra</div></div>'+
+      '<div class="cajcard"><div class="cajmnt tr2">'+fmt(salEx)+'</div><div class="cajlbl">Egresos</div></div>'+
+      '<div class="cajcard" style="background:var(--verde-suave)"><div class="cajmnt tv">'+fmt(tot)+'</div><div class="cajlbl">Total en Caja</div></div>';
+    const tb=document.getElementById('tcajmov');
+    const todos=[
+      ...venTurno.map(function(v){return{hora:v.hora,tipo:'venta',desc:'Venta #'+v.id+' - '+v.clinom,monto:v.total};}),
+      ...movTurno
+    ].sort(function(a,b){return (a.hora||'').localeCompare(b.hora||'');});
+    if(!todos.length){tb.innerHTML='<tr><td colspan="4"><div class="vacio"><div class="vi">🏦</div><p>Sin movimientos</p></div></td></tr>';}
+    else tb.innerHTML=todos.map(function(m){
+      const esVenta=m.tipo==='venta';
+      const esSalida=m.tipo==='salida';
+      return '<tr><td>'+(m.hora||'-')+'</td><td><span class="bdg '+(esVenta?'bv2':esSalida?'br2':'bv2')+'">'+m.tipo+'</span></td><td>'+m.desc+'</td><td class="'+(esSalida?'tr2':'tv')+'">'+(esSalida?'-':'')+fmt(m.monto)+'</td></tr>';
+    }).join('');
+  }
+  // Historial de turnos cerrados
+  const cerrados=[...DB.turnos].filter(function(t){return t.cierre;}).reverse();
+  const hEl=document.getElementById('caja-historial');
+  if(!cerrados.length){hEl.innerHTML='<div class="vacio"><div class="vi">📋</div><p>Sin turnos cerrados aún</p></div>';return;}
+  hEl.innerHTML=cerrados.map(function(t){
+    const movT=DB.caja.filter(function(m){return m.turnoId===t.id;});
+    const venT=DB.ventas.filter(function(v){return v.turnoId===t.id;});
+    const venTotal=venT.reduce(function(s,v){return s+v.total;},0);
+    const ing=movT.filter(function(m){return m.tipo==='entrada';}).reduce(function(s,m){return s+m.monto;},0);
+    const sal=movT.filter(function(m){return m.tipo==='salida';}).reduce(function(s,m){return s+m.monto;},0);
+    const tot=(t.fondo||0)+venTotal+ing-sal;
+    return '<div style="background:var(--crema);border-radius:10px;padding:14px;margin-bottom:10px;border-left:4px solid var(--verde-claro)">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'+
+      '<div><span style="font-weight:700;font-size:14px">📅 '+t.fecha+'</span> <span style="color:var(--gris);font-size:12px">'+t.apertura+' → '+t.cierre+'</span></div>'+
+      '<div style="display:flex;gap:14px;font-size:13px">'+
+      '<span>🎫 <strong>'+venT.length+'</strong> tickets</span>'+
+      '<span class="tv">💰 <strong>'+fmt(venTotal)+'</strong> ventas</span>'+
+      '<span class="tr2">📤 <strong>'+fmt(sal)+'</strong> egresos</span>'+
+      '<span style="font-weight:700">🏦 <strong>'+fmt(tot)+'</strong> total</span>'+
+      '</div></div></div>';
+  }).join('');
+}
+function abrirTurno(){
+  if(turnoActivo()){toast('Ya hay un turno abierto','a');return;}
+  const fondo=parseFloat(document.getElementById('caja-fondo').value)||0;
+  const t={id:nid('caja'),fecha:hoy(),apertura:hora(),cierre:null,fondo};
+  DB.turnos.push(t);
+  saveDB();renderCaja();
+  toast('Turno abierto','v');
+}
+function cerrarTurno(){
+  const ta=turnoActivo();
+  if(!ta){toast('No hay turno abierto','a');return;}
+  confirmar('¿Cerrás el turno actual?').then(function(ok){
+    if(!ok)return;
+    ta.cierre=hora();
+    saveDB();renderCaja();
+    toast('Turno cerrado','v');
+  });
 }
 function regMovCaja(){
+  const ta=turnoActivo();
+  if(!ta){toast('Abrí un turno primero','a');return;}
   const tipo=document.getElementById('cajt').value;
   const monto=parseFloat(document.getElementById('cajm').value);
   const desc=document.getElementById('cajd').value.trim();
   if(isNaN(monto)||monto<=0){toast('Monto inválido','a');return;}
-  DB.caja.push({id:nid('caja'),fecha:hoy(),hora:hora(),tipo,desc:desc||tipo,monto});
+  DB.caja.push({id:nid('caja'),fecha:hoy(),hora:hora(),tipo,desc:desc||tipo,monto,turnoId:ta.id});
   saveDB();document.getElementById('cajm').value='';document.getElementById('cajd').value='';renderCaja();
 }
 
@@ -1938,6 +2039,9 @@ function regBita(tipo, detalle, data) {
   if(DB.bitacora.length > 500) DB.bitacora = DB.bitacora.slice(0,500);
   saveDB();
 }
+
+if(!DB.turnos) DB.turnos = [];
+
 function renderBitacora() {
   const usr = DB.usrs.find(u => u.id === (DB.usuarioActual || 1));
   const esAdmin = !usr || usr.rol === 'Administrador';
