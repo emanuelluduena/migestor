@@ -339,33 +339,27 @@ tbody td{padding:9px 13px;vertical-align:middle;}
         <div class="fg" style="margin-bottom:9px">
           <label>Forma de Pago</label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:3px">
-            <div class="fg" style="margin-bottom:9px">
-  
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:3px">
-    <button class="bpago act" id="pg-Efectivo" onclick="selPago('Efectivo')">💵 Efectivo</button>
-    <button class="bpago" id="pg-Transferencia" onclick="selPago('Transferencia')">📱 Transferencia</button>
-    <button class="bpago" id="pg-Débito" onclick="selPago('Débito')">💳 Débito</button>
-    <button class="bpago" id="pg-Crédito" onclick="selPago('Crédito')">💳 Crédito</button>
-    <button class="bpago" id="pg-QR" onclick="selPago('QR')">📲 QR</button>
-    <button class="bpago" id="pg-CuentaCorriente" onclick="selPago('Cuenta Corriente')">📒 Cta. Corriente</button>
-    <button class="bpago" id="pg-Combinado" onclick="selPago('Combinado')" style="grid-column:span 2">🔀 Pago Combinado</button>
-  </div>
-  <input type="hidden" id="tpago" value="Efectivo">
-  <!-- Interés crédito -->
-  <div id="bloque-credito" style="display:none;margin-top:8px;background:#fef3cd;border-radius:8px;padding:8px 12px">
-    <label style="font-size:11px;font-weight:700;color:#856404">INTERÉS CRÉDITO (%)</label>
-    <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-      <input type="number" id="credito-interes" value="0" min="0" max="100" style="width:70px;border:1.5px solid #e5e7eb;border-radius:6px;padding:5px 8px;font-size:14px" oninput="recalc()">
-      <span style="font-size:12px;color:#856404">% — El cliente paga más</span>
-    </div>
-  </div>
-  <!-- Pago combinado -->
-  <div id="bloque-combinado" style="display:none;margin-top:8px;background:var(--crema);border-radius:8px;padding:8px 12px">
-    <label style="font-size:11px;font-weight:700;color:var(--verde)">DISTRIBUÍ EL PAGO</label>
-    <div id="combinado-filas" style="margin-top:6px;display:flex;flex-direction:column;gap:5px"></div>
-    <div style="margin-top:6px;font-size:12px;color:var(--gris)">Restante: <strong id="combinado-restante" style="color:var(--verde)">$0</strong></div>
-  </div>
-</div>
+            <button class="bpago act" id="pg-Efectivo" onclick="selPago('Efectivo')">💵 Efectivo</button>
+            <button class="bpago" id="pg-Transferencia" onclick="selPago('Transferencia')">📱 Transferencia</button>
+            <button class="bpago" id="pg-Débito" onclick="selPago('Débito')">💳 Débito</button>
+            <button class="bpago" id="pg-Crédito" onclick="selPago('Crédito')">💳 Crédito</button>
+            <button class="bpago" id="pg-QR" onclick="selPago('QR')">📲 QR</button>
+            <button class="bpago" id="pg-CuentaCorriente" onclick="selPago('Cuenta Corriente')">📒 Cta. Corriente</button>
+            <button class="bpago" id="pg-Combinado" onclick="selPago('Combinado')" style="grid-column:span 2">🔀 Pago Combinado</button>
+          </div>
+          <input type="hidden" id="tpago" value="Efectivo">
+          <div id="bloque-credito" style="display:none;margin-top:8px;background:#fef3cd;border-radius:8px;padding:8px 12px">
+            <label style="font-size:11px;font-weight:700;color:#856404">INTERÉS CRÉDITO (%)</label>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+              <input type="number" id="credito-interes" value="0" min="0" max="100" style="width:70px;border:1.5px solid #e5e7eb;border-radius:6px;padding:5px 8px;font-size:14px" oninput="recalc()">
+              <span style="font-size:12px;color:#856404">% — El cliente paga más</span>
+            </div>
+          </div>
+          <div id="bloque-combinado" style="display:none;margin-top:8px;background:var(--crema);border-radius:8px;padding:8px 12px">
+            <label style="font-size:11px;font-weight:700;color:var(--verde)">DISTRIBUÍ EL PAGO</label>
+            <div id="combinado-filas" style="margin-top:6px;display:flex;flex-direction:column;gap:5px"></div>
+            <div style="margin-top:6px;font-size:12px;color:var(--gris)">Restante: <strong id="combinado-restante" style="color:var(--verde)">$0</strong></div>
+          </div>
         </div>
         <button class="btn bv" id="bcobrar" style="width:100%;justify-content:center;font-size:15px;padding:11px" onclick="iniciarCobro()">💳 Cobrar [F4/Enter]</button>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px">
@@ -887,6 +881,41 @@ tbody td{padding:9px 13px;vertical-align:middle;}
     <button class="btn bv" onclick="exportDetalle()">📥 Exportar CSV</button>
   </div>
 </div></div>
+
+<div id="m-arqueo" class="moverlay">
+  <div class="modal" style="max-width:580px">
+    <h2>🔒 Cerrar Turno — Arqueo de Caja</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:16px">
+      <div class="scard"><div class="snum" style="font-size:16px" id="arqueo-fondo">$0</div><div class="slbl">Fondo inicial</div></div>
+      <div class="scard"><div class="snum" style="font-size:16px" id="arqueo-ventas">$0</div><div class="slbl">Total ventas</div></div>
+      <div class="scard am"><div class="snum" style="font-size:16px" id="arqueo-ingresos">$0</div><div class="slbl">Ingresos extra</div></div>
+      <div class="scard ro"><div class="snum" style="font-size:16px" id="arqueo-egresos">$0</div><div class="slbl">Egresos</div></div>
+    </div>
+    <div style="background:var(--verde-suave);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:700;color:var(--verde)">Total esperado en caja:</span>
+      <span style="font-family:Fraunces,serif;font-size:20px;font-weight:700;color:var(--verde)" id="arqueo-esperado">$0</span>
+      <span id="arqueo-esperado-real" data-valor="0" style="display:none"></span>
+    </div>
+    <div class="twrap" style="margin-bottom:14px">
+      <table>
+        <thead><tr><th>Forma de pago</th><th>Sistema</th><th>Real (contado)</th><th>Diferencia</th></tr></thead>
+        <tbody id="arqueo-body"></tbody>
+      </table>
+    </div>
+    <div style="background:#f8f8f8;border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:700;font-size:14px">Diferencia total:</span>
+      <span id="arqueo-diferencia" style="font-size:15px">—</span>
+    </div>
+    <div class="fg" style="margin-bottom:16px">
+      <label>Observaciones (opcional)</label>
+      <textarea id="arqueo-obs" rows="2" placeholder="Notas del cierre..." style="border:1.5px solid #e5e7eb;border-radius:6px;padding:8px;font-family:inherit;font-size:13px;resize:none"></textarea>
+    </div>
+    <div class="mfoot">
+      <button class="btn bg" onclick="cerrar('m-arqueo')">Cancelar</button>
+      <button class="btn br" onclick="confirmarCierreTurno()">🔒 Confirmar cierre</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ═══════════════════════ DB ═══════════════════════
@@ -1703,22 +1732,10 @@ function turnoActivo(){
 function renderCaja(){
   try {
   const ta=turnoActivo();
-  // Alerta caja no cerrada ayer
-  const ay=new Date();ay.setDate(ay.getDate()-1);
-  const ayStr=ay.toISOString().slice(0,10);
-  const tuvoCierre=DB.turnos.some(function(t){return t.fecha===ayStr&&t.cierre;});
-  const tuvoMovAyer=DB.ventas.some(function(v){return v.fecha===ayStr;})||DB.caja.some(function(m){return m.fecha===ayStr;});
-  const alertaEl=document.getElementById('caja-alerta');
-  if(alertaEl){
-    if(tuvoMovAyer&&!tuvoCierre){
-      alertaEl.style.display='block';
-      alertaEl.innerHTML='⚠️ No registraste el cierre de caja de ayer ('+ayStr+'). Recordá cerrar el turno al finalizar el día.';
-    } else {
-      alertaEl.style.display='none';
-    }
-  }
-  document.getElementById('caja-sin-turno').style.display=ta?'none':'block';
-  document.getElementById('caja-con-turno').style.display=ta?'block':'none';
+  const sinTurnoEl=document.getElementById('caja-sin-turno');
+  const conTurnoEl=document.getElementById('caja-con-turno');
+  if(sinTurnoEl) sinTurnoEl.style.display=ta?'none':'block';
+  if(conTurnoEl) conTurnoEl.style.display=ta?'block':'none';
   if(ta){
     document.getElementById('caja-turno-badge').textContent='🔓 Turno abierto desde '+ta.apertura+' · '+ta.fecha;
     const movTurno=DB.caja.filter(function(m){return m.turnoId===ta.id;});
@@ -2801,40 +2818,7 @@ if(!DB.config) DB.config={};
 aplicarConfig();
 renderInicio();
 </script>
-<div id="m-arqueo" class="moverlay">
-  <div class="modal" style="max-width:580px">
-    <h2>🔒 Cerrar Turno — Arqueo de Caja</h2>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:16px">
-      <div class="scard"><div class="snum" style="font-size:16px" id="arqueo-fondo">$0</div><div class="slbl">Fondo inicial</div></div>
-      <div class="scard"><div class="snum" style="font-size:16px" id="arqueo-ventas">$0</div><div class="slbl">Total ventas</div></div>
-      <div class="scard am"><div class="snum" style="font-size:16px" id="arqueo-ingresos">$0</div><div class="slbl">Ingresos extra</div></div>
-      <div class="scard ro"><div class="snum" style="font-size:16px" id="arqueo-egresos">$0</div><div class="slbl">Egresos</div></div>
-    </div>
-    <div style="background:var(--verde-suave);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-weight:700;color:var(--verde)">Total esperado en caja:</span>
-      <span style="font-family:Fraunces,serif;font-size:20px;font-weight:700;color:var(--verde)" id="arqueo-esperado">$0</span>
-      <span id="arqueo-esperado-real" data-valor="0" style="display:none"></span>
-    </div>
-    <div class="twrap" style="margin-bottom:14px">
-      <table>
-        <thead><tr><th>Forma de pago</th><th>Sistema</th><th>Real (contado)</th><th>Diferencia</th></tr></thead>
-        <tbody id="arqueo-body"></tbody>
-      </table>
-    </div>
-    <div style="background:#f8f8f8;border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-weight:700;font-size:14px">Diferencia total:</span>
-      <span id="arqueo-diferencia" style="font-size:15px">—</span>
-    </div>
-    <div class="fg" style="margin-bottom:16px">
-      <label>Observaciones (opcional)</label>
-      <textarea id="arqueo-obs" rows="2" placeholder="Notas del cierre..." style="border:1.5px solid #e5e7eb;border-radius:6px;padding:8px;font-family:inherit;font-size:13px;resize:none"></textarea>
-    </div>
-    <div class="mfoot">
-      <button class="btn bg" onclick="cerrar('m-arqueo')">Cancelar</button>
-      <button class="btn br" onclick="confirmarCierreTurno()">🔒 Confirmar cierre</button>
-    </div>
-  </div>
-</div>
+
 
 <div id="toast-container"></div>
 </body>
