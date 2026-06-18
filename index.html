@@ -1803,6 +1803,18 @@ const totalEsperado=(ta.fondo||0)+efectivoSistema+ingEx-salEx;
   document.getElementById('arqueo-esperado-real').dataset.valor=totalEsperado;
   document.getElementById('arqueo-diferencia').textContent='—';
   document.getElementById('arqueo-obs').value='';
+  // Resumen de movimientos del día (sin ventas)
+let movHtml='';
+const movOrdenados=[...movTurno].sort(function(a,b){return (a.hora||'').localeCompare(b.hora||'');});
+if(movOrdenados.length){
+  movHtml='<div class="stit" style="margin-top:14px">📋 Movimientos del turno</div>'+
+  '<div class="twrap" style="margin-bottom:14px"><table><thead><tr><th>Hora</th><th>Tipo</th><th>Descripción</th><th>Monto</th></tr></thead><tbody>'+
+  movOrdenados.map(function(m){
+    const esSalida=m.tipo==='salida';
+    return '<tr><td>'+(m.hora||'-')+'</td><td><span class="bdg '+(esSalida?'br2':'bv2')+'">'+m.tipo+'</span></td><td>'+(m.desc||'-')+'</td><td class="'+(esSalida?'tr2':'tv')+'">'+(esSalida?'-':'')+fmt(m.monto)+'</td></tr>';
+  }).join('')+'</tbody></table></div>';
+}
+document.getElementById('arqueo-movimientos').innerHTML=movHtml;
   abrir('m-arqueo');
 }
 function calcArqueo(){
@@ -2839,6 +2851,7 @@ renderInicio();
       <span style="font-weight:700;font-size:14px">Diferencia total:</span>
       <span id="arqueo-diferencia" style="font-size:15px">—</span>
     </div>
+    <div id="arqueo-movimientos"></div>
     <div class="fg" style="margin-bottom:16px">
       <label>Observaciones (opcional)</label>
       <textarea id="arqueo-obs" rows="2" placeholder="Notas del cierre..." style="border:1.5px solid #e5e7eb;border-radius:6px;padding:8px;font-family:inherit;font-size:13px;resize:none"></textarea>
