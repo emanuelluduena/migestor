@@ -2061,7 +2061,7 @@ function regGasto(){
   const desc=(provSel?provSel+' - ':'')+document.getElementById('gdesc').value.trim();
   const g={id:nid('gasto'),fecha,cat:document.getElementById('gcat').value,desc,met,monto};
   DB.gastos.push(g);
-  if(met==='efectivo')DB.caja.push({id:nid('caja'),fecha,hora:hora(),tipo:'salida',desc:'Gasto: '+g.cat,monto});
+ if(met==='efectivo'){const ta=turnoActivo();DB.caja.push({id:nid('caja'),fecha,hora:hora(),tipo:'salida',desc:'Gasto: '+g.cat,monto,turnoId:ta?ta.id:null});}
   saveDB();document.getElementById('gmonto').value='';document.getElementById('gdesc').value='';renderGastos();
 }
 async function delGasto(id){
