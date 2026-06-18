@@ -1718,9 +1718,11 @@ function renderCaja(){
     const movTurno=DB.caja.filter(function(m){return m.turnoId===ta.id;});
     const venTurno=DB.ventas.filter(function(v){return v.turnoId===ta.id;});
     const venTotal=venTurno.reduce(function(s,v){return s+v.total;},0);
-    const ingEx=movTurno.filter(function(m){return m.tipo==='entrada';}).reduce(function(s,m){return s+m.monto;},0);
-    const salEx=movTurno.filter(function(m){return m.tipo==='salida';}).reduce(function(s,m){return s+m.monto;},0);
-    const tot=(ta.fondo||0)+venTotal+ingEx-salEx;
+const venEfectivo=venTurno.filter(function(v){return v.pago==='Efectivo';}).reduce(function(s,v){return s+v.total;},0);
+const ingEx=movTurno.filter(function(m){return m.tipo==='entrada';}).reduce(function(s,m){return s+m.monto;},0);
+const salEx=movTurno.filter(function(m){return m.tipo==='salida';}).reduce(function(s,m){return s+m.monto;},0);
+const gastosEfectivo=DB.gastos.filter(function(g){return g.met==='efectivo'&&g.fecha>=ta.fecha;}).reduce(function(s,g){return s+g.monto;},0);
+const tot=(ta.fondo||0)+venEfectivo+ingEx-salEx-gastosEfectivo;
     document.getElementById('cajres').innerHTML=
       '<div class="cajcard"><div class="cajmnt tv">'+fmt(venTotal)+'</div><div class="cajlbl">Ventas del turno</div></div>'+
       '<div class="cajcard"><div class="cajmnt" style="color:var(--verde-claro)">'+fmt(ingEx)+'</div><div class="cajlbl">Ingresos extra</div></div>'+
