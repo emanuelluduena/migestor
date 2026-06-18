@@ -1641,6 +1641,7 @@ function cambiarPeriodo(){
 function getFiltro(){
   const v=document.getElementById('sperio').value;const now=new Date();
   if(v==='hoy')return function(d){return d===hoy();};
+  if(v==='ayer'){const ay=new Date(now);ay.setDate(now.getDate()-1);return function(d){return d===ay.toISOString().slice(0,10);};}
   if(v==='semana'){const ini=new Date(now);ini.setDate(now.getDate()-now.getDay());const is=ini.toISOString().slice(0,10);return function(d){return d>=is;};}
   if(v==='mes'){const ms=now.toISOString().slice(0,7);return function(d){return d&&d.startsWith(ms);};}
   if(v==='custom'){
