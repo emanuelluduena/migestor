@@ -339,13 +339,33 @@ tbody td{padding:9px 13px;vertical-align:middle;}
         <div class="fg" style="margin-bottom:9px">
           <label>Forma de Pago</label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:3px">
-            <button class="bpago act" id="pg-Efectivo" onclick="selPago('Efectivo')">💵 Efectivo</button>
-            <button class="bpago" id="pg-Transferencia" onclick="selPago('Transferencia')">📱 Transferencia</button>
-            <button class="bpago" id="pg-Débito" onclick="selPago('Débito')">💳 Débito</button>
-            <button class="bpago" id="pg-Crédito" onclick="selPago('Crédito')">💳 Crédito</button>
-            <button class="bpago" id="pg-CuentaCorriente" onclick="selPago('Cuenta Corriente')" style="grid-column:span 2">📒 Cuenta Corriente</button>
-          </div>
-          <input type="hidden" id="tpago" value="Efectivo">
+            <div class="fg" style="margin-bottom:9px">
+  
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:3px">
+    <button class="bpago act" id="pg-Efectivo" onclick="selPago('Efectivo')">💵 Efectivo</button>
+    <button class="bpago" id="pg-Transferencia" onclick="selPago('Transferencia')">📱 Transferencia</button>
+    <button class="bpago" id="pg-Débito" onclick="selPago('Débito')">💳 Débito</button>
+    <button class="bpago" id="pg-Crédito" onclick="selPago('Crédito')">💳 Crédito</button>
+    <button class="bpago" id="pg-QR" onclick="selPago('QR')">📲 QR</button>
+    <button class="bpago" id="pg-CuentaCorriente" onclick="selPago('Cuenta Corriente')">📒 Cta. Corriente</button>
+    <button class="bpago" id="pg-Combinado" onclick="selPago('Combinado')" style="grid-column:span 2">🔀 Pago Combinado</button>
+  </div>
+  <input type="hidden" id="tpago" value="Efectivo">
+  <!-- Interés crédito -->
+  <div id="bloque-credito" style="display:none;margin-top:8px;background:#fef3cd;border-radius:8px;padding:8px 12px">
+    <label style="font-size:11px;font-weight:700;color:#856404">INTERÉS CRÉDITO (%)</label>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+      <input type="number" id="credito-interes" value="0" min="0" max="100" style="width:70px;border:1.5px solid #e5e7eb;border-radius:6px;padding:5px 8px;font-size:14px" oninput="recalc()">
+      <span style="font-size:12px;color:#856404">% — El cliente paga más</span>
+    </div>
+  </div>
+  <!-- Pago combinado -->
+  <div id="bloque-combinado" style="display:none;margin-top:8px;background:var(--crema);border-radius:8px;padding:8px 12px">
+    <label style="font-size:11px;font-weight:700;color:var(--verde)">DISTRIBUÍ EL PAGO</label>
+    <div id="combinado-filas" style="margin-top:6px;display:flex;flex-direction:column;gap:5px"></div>
+    <div style="margin-top:6px;font-size:12px;color:var(--gris)">Restante: <strong id="combinado-restante" style="color:var(--verde)">$0</strong></div>
+  </div>
+</div>
         </div>
         <button class="btn bv" id="bcobrar" style="width:100%;justify-content:center;font-size:15px;padding:11px" onclick="iniciarCobro()">💳 Cobrar [F4/Enter]</button>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px">
@@ -1530,18 +1550,53 @@ function chgCant(i,d){
   else if(!ticket[i].manual){const art=DB.arts.find(a=>a.id===ticket[i].aid);if(art){const L=document.getElementById('pvlista').value;ticket[i].precio=getPrecio(art,L,ticket[i].cant);ticket[i].esMayor=ticket[i].cant>=art.cm;}}
   renderTicket();
 }
-function recalc(){
-  const sub=ticket.reduce(function(s,it){return s+it.precio*it.cant;},0);
-  const desc=parseFloat(document.getElementById('tdesc').value)||0;
-  const tot=sub*(1-desc/100);
-  document.getElementById('tsub').textContent=fmt(sub);
-  document.getElementById('ttot2').textContent=fmt(tot);
-}
 function selPago(t){
   document.getElementById('tpago').value=t;
   document.querySelectorAll('.bpago').forEach(function(b){b.classList.remove('act');});
-  const bid=t==='Cuenta Corriente'?'pg-CuentaCorriente':'pg-'+t;
+  const bid=t==='Cuenta Corriente'?'pg-CuentaCorriente':t==='Combinado'?'pg-Combinado':'pg-'+t;
   const el=document.getElementById(bid);if(el)el.classList.add('act');
+  document.getElementById('bloque-credito').style.display=t==='Crédito'?'block':'none';
+  document.getElementById('bloque-combinado').style.display=t==='Combinado'?'block':'none';
+  if(t==='Combinado')renderCombinado();
+  if(t!=='Crédito')document.getElementById('credito-interes').value=0;
+  recalc();
+}
+function renderCombinado(){
+  const medios=['Efectivo','Transferencia','Débito','Crédito','QR','Cuenta Corriente'];
+  const sub=ticket.reduce(function(s,it){return s+it.precio*it.cant;},0);
+  const desc=parseFloat(document.getElementById('tdesc').value)||0;
+  const tot=sub*(1-desc/100);
+  document.getElementById('combinado-filas').innerHTML=medios.map(function(m){
+    return '<div style="display:flex;align-items:center;gap:6px">'+
+      '<span style="font-size:12px;min-width:100px">'+m+'</span>'+
+      '<input type="number" class="comb-inp" data-medio="'+m+'" placeholder="0" min="0" '+
+      'style="flex:1;border:1.5px solid #e5e7eb;border-radius:6px;padding:4px 8px;font-size:13px" '+
+      'oninput="calcCombinado()">'+
+      '</div>';
+  }).join('');
+  document.getElementById('combinado-restante').textContent=fmt(tot);
+}
+function calcCombinado(){
+  const sub=ticket.reduce(function(s,it){return s+it.precio*it.cant;},0);
+  const desc=parseFloat(document.getElementById('tdesc').value)||0;
+  const tot=sub*(1-desc/100);
+  const usado=Array.from(document.querySelectorAll('.comb-inp')).reduce(function(s,i){return s+(parseFloat(i.value)||0);},0);
+  const rest=tot-usado;
+  const el=document.getElementById('combinado-restante');
+  el.textContent=fmt(rest);
+  el.style.color=rest<0?'var(--rojo)':rest===0?'var(--verde)':'var(--tierra)';
+}
+function recalc(){
+  const sub=ticket.reduce(function(s,it){return s+it.precio*it.cant;},0);
+  const desc=parseFloat(document.getElementById('tdesc').value)||0;
+  let tot=sub*(1-desc/100);
+  const pago=document.getElementById('tpago').value;
+  if(pago==='Crédito'){
+    const int=parseFloat(document.getElementById('credito-interes').value)||0;
+    tot=tot*(1+int/100);
+  }
+  document.getElementById('tsub').textContent=fmt(sub);
+  document.getElementById('ttot2').textContent=fmt(tot);
 }
 async function nuevaVenta(){
   if(ticket.length>0&&!await confirmar('¿Cancelás la venta actual?'))return;
@@ -1581,19 +1636,34 @@ function cobrarVenta(){
   if(!ticket.length)return;
   const desc=parseFloat(document.getElementById('tdesc').value)||0;
   const sub=ticket.reduce(function(s,it){return s+it.precio*it.cant;},0);
-  const tot=sub*(1-desc/100);
+  const pago=document.getElementById('tpago').value;
+  const interes=pago==='Crédito'?(parseFloat(document.getElementById('credito-interes').value)||0):0;
+  let tot=sub*(1-desc/100)*(1+interes/100);
   const cliid=document.getElementById('pvcli').value;
   const cli=DB.clis.find(c=>c.id==cliid);
   const lista=document.getElementById('pvlista').value;
-  const pago=document.getElementById('tpago').value;
   ticket.forEach(function(it){if(it.aid){const art=DB.arts.find(a=>a.id===it.aid);if(art)art.stk=Math.max(0,art.stk-it.cant);}});
   const ta=turnoActivo();
-  const v={id:nid('venta'),fecha:hoy(),hora:hora(),cliid:cliid||null,clinom:cli?cli.nom:'Consumidor Final',lista,listaNom:lnom[lista]||lista,items:ticket.map(function(it){return Object.assign({},it);}),sub,desc,total:tot,pago,turnoId:ta?ta.id:null};
-  DB.ventas.push(v);
-  if(pago!=='Cuenta Corriente')DB.caja.push({id:nid('caja'),fecha:hoy(),hora:hora(),tipo:'venta',desc:'Venta #'+v.id+' - '+v.clinom,monto:tot,turnoId:ta?ta.id:null});
+  // Pago combinado: guardar múltiples pagos
+  if(pago==='Combinado'){
+    const pagos=[];
+    document.querySelectorAll('.comb-inp').forEach(function(inp){
+      const monto=parseFloat(inp.value)||0;
+      if(monto>0)pagos.push({medio:inp.dataset.medio,monto});
+    });
+    if(!pagos.length){toast('Ingresá al menos un monto','a');return;}
+    const sumPagos=pagos.reduce(function(s,p){return s+p.monto;},0);
+    if(Math.abs(sumPagos-tot)>1){toast('La suma de pagos ('+fmt(sumPagos)+') no coincide con el total ('+fmt(tot)+')','a');return;}
+    const v={id:nid('venta'),fecha:hoy(),hora:hora(),cliid:cliid||null,clinom:cli?cli.nom:'Consumidor Final',lista,listaNom:lnom[lista]||lista,items:ticket.map(function(it){return Object.assign({},it);}),sub,desc,total:tot,pago:'Combinado',pagos,turnoId:ta?ta.id:null};
+    DB.ventas.push(v);
+  } else {
+    const v={id:nid('venta'),fecha:hoy(),hora:hora(),cliid:cliid||null,clinom:cli?cli.nom:'Consumidor Final',lista,listaNom:lnom[lista]||lista,items:ticket.map(function(it){return Object.assign({},it);}),sub,desc,total:tot,pago,interes:interes||undefined,turnoId:ta?ta.id:null};
+    DB.ventas.push(v);
+  }
   saveDB();
   const tf=fmt(tot);ticket=[];renderTicket();limpiaPV();
   document.getElementById('tdesc').value=0;document.getElementById('pvcli').value='';document.getElementById('pvlista').value='lista1';
+  document.getElementById('credito-interes').value=0;
   selPago('Efectivo');renderHist();renderPVArts();
   toast('Venta registrada — Total: '+tf,'v');
 }
@@ -1705,12 +1775,75 @@ function abrirTurno(){
 function cerrarTurno(){
   const ta=turnoActivo();
   if(!ta){toast('No hay turno abierto','a');return;}
-  confirmar('¿Cerrás el turno actual?').then(function(ok){
-    if(!ok)return;
-    ta.cierre=hora();
-    saveDB();renderCaja();
-    toast('Turno cerrado','v');
+  // Calcular datos para el arqueo
+  const venTurno=DB.ventas.filter(function(v){return v.turnoId===ta.id;});
+  const movTurno=DB.caja.filter(function(m){return m.turnoId===ta.id;});
+  const pagos=['Efectivo','Transferencia','Débito','Crédito','Cuenta Corriente'];
+  const ingEx=movTurno.filter(function(m){return m.tipo==='entrada';}).reduce(function(s,m){return s+m.monto;},0);
+  const salEx=movTurno.filter(function(m){return m.tipo==='salida';}).reduce(function(s,m){return s+m.monto;},0);
+  let filas='';
+  let totalSistema=0;
+  pagos.forEach(function(p){
+    const monto=venTurno.filter(function(v){return v.pago===p;}).reduce(function(s,v){return s+v.total;},0);
+    if(monto===0)return;
+    totalSistema+=monto;
+    filas+='<tr>'+
+      '<td style="padding:8px 10px;font-size:13px">'+p+'</td>'+
+      '<td style="padding:8px 10px;font-size:13px;color:var(--verde);font-weight:600">'+fmt(monto)+'</td>'+
+      '<td style="padding:8px 10px"><input type="number" class="arqueo-real" data-pago="'+p+'" data-sistema="'+monto+'" placeholder="0" style="width:120px;border:1.5px solid #e5e7eb;border-radius:6px;padding:5px 8px;font-size:13px" oninput="calcArqueo()"></td>'+
+      '<td class="arqueo-dif-'+p.replace(/\s/g,'_')+'" style="padding:8px 10px;font-size:13px;font-weight:600">—</td>'+
+    '</tr>';
   });
+  const totalEsperado=(ta.fondo||0)+totalSistema+ingEx-salEx;
+  document.getElementById('arqueo-body').innerHTML=filas;
+  document.getElementById('arqueo-fondo').textContent=fmt(ta.fondo||0);
+  document.getElementById('arqueo-ventas').textContent=fmt(totalSistema);
+  document.getElementById('arqueo-ingresos').textContent=fmt(ingEx);
+  document.getElementById('arqueo-egresos').textContent=fmt(salEx);
+  document.getElementById('arqueo-esperado').textContent=fmt(totalEsperado);
+  document.getElementById('arqueo-esperado-real').dataset.valor=totalEsperado;
+  document.getElementById('arqueo-diferencia').textContent='—';
+  document.getElementById('arqueo-obs').value='';
+  abrir('m-arqueo');
+}
+function calcArqueo(){
+  let totalReal=0;let todosCompletos=true;
+  document.querySelectorAll('.arqueo-real').forEach(function(inp){
+    const sistema=parseFloat(inp.dataset.sistema)||0;
+    const real=parseFloat(inp.value);
+    const pago=inp.dataset.pago.replace(/\s/g,'_');
+    const difEl=document.querySelector('.arqueo-dif-'+pago);
+    if(isNaN(real)){if(difEl)difEl.textContent='—';todosCompletos=false;return;}
+    totalReal+=real;
+    const dif=real-sistema;
+    if(difEl){
+      difEl.textContent=(dif>=0?'+':'')+fmt(dif);
+      difEl.style.color=dif>=0?'var(--verde)':'var(--rojo)';
+    }
+  });
+  if(!todosCompletos){document.getElementById('arqueo-diferencia').textContent='—';return;}
+  const esperado=parseFloat(document.getElementById('arqueo-esperado-real').dataset.valor)||0;
+  // El total real incluye el fondo inicial
+  const fondo=parseFloat(document.getElementById('arqueo-fondo').textContent.replace(/[^0-9,-]/g,'').replace(',','.'))||0;
+  const dif=(totalReal+fondo)-esperado;
+  const difEl=document.getElementById('arqueo-diferencia');
+  difEl.textContent=(dif>=0?'✅ Sobrante: +':'⚠️ Faltante: ')+fmt(Math.abs(dif));
+  difEl.style.color=dif>=0?'var(--verde)':'var(--rojo)';
+  difEl.style.fontWeight='700';
+}
+function confirmarCierreTurno(){
+  const ta=turnoActivo();
+  if(!ta)return;
+  // Guardar arqueo
+  const arqueo={};
+  document.querySelectorAll('.arqueo-real').forEach(function(inp){
+    arqueo[inp.dataset.pago]=parseFloat(inp.value)||0;
+  });
+  ta.cierre=hora();
+  ta.obs=document.getElementById('arqueo-obs').value.trim();
+  ta.arqueo=arqueo;
+  saveDB();cerrar('m-arqueo');renderCaja();
+  toast('Turno cerrado','v');
 }
 function regMovCaja(){
   const ta=turnoActivo();
@@ -2666,6 +2799,41 @@ if(!DB.config) DB.config={};
 aplicarConfig();
 renderInicio();
 </script>
+<div id="m-arqueo" class="moverlay">
+  <div class="modal" style="max-width:580px">
+    <h2>🔒 Cerrar Turno — Arqueo de Caja</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:16px">
+      <div class="scard"><div class="snum" style="font-size:16px" id="arqueo-fondo">$0</div><div class="slbl">Fondo inicial</div></div>
+      <div class="scard"><div class="snum" style="font-size:16px" id="arqueo-ventas">$0</div><div class="slbl">Total ventas</div></div>
+      <div class="scard am"><div class="snum" style="font-size:16px" id="arqueo-ingresos">$0</div><div class="slbl">Ingresos extra</div></div>
+      <div class="scard ro"><div class="snum" style="font-size:16px" id="arqueo-egresos">$0</div><div class="slbl">Egresos</div></div>
+    </div>
+    <div style="background:var(--verde-suave);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:700;color:var(--verde)">Total esperado en caja:</span>
+      <span style="font-family:Fraunces,serif;font-size:20px;font-weight:700;color:var(--verde)" id="arqueo-esperado">$0</span>
+      <span id="arqueo-esperado-real" data-valor="0" style="display:none"></span>
+    </div>
+    <div class="twrap" style="margin-bottom:14px">
+      <table>
+        <thead><tr><th>Forma de pago</th><th>Sistema</th><th>Real (contado)</th><th>Diferencia</th></tr></thead>
+        <tbody id="arqueo-body"></tbody>
+      </table>
+    </div>
+    <div style="background:#f8f8f8;border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:700;font-size:14px">Diferencia total:</span>
+      <span id="arqueo-diferencia" style="font-size:15px">—</span>
+    </div>
+    <div class="fg" style="margin-bottom:16px">
+      <label>Observaciones (opcional)</label>
+      <textarea id="arqueo-obs" rows="2" placeholder="Notas del cierre..." style="border:1.5px solid #e5e7eb;border-radius:6px;padding:8px;font-family:inherit;font-size:13px;resize:none"></textarea>
+    </div>
+    <div class="mfoot">
+      <button class="btn bg" onclick="cerrar('m-arqueo')">Cancelar</button>
+      <button class="btn br" onclick="confirmarCierreTurno()">🔒 Confirmar cierre</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 </body>
 </html>
