@@ -387,10 +387,20 @@ tbody td{padding:9px 13px;vertical-align:middle;}
 <div id="mod-estadisticas" class="modulo">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;background:white;padding:11px 14px;border-radius:var(--radio);box-shadow:var(--sombra2)">
     <span style="font-weight:700;color:var(--verde);font-size:13px">📅 Período:</span>
-    <select id="sperio" onchange="renderStats()" style="border:1.5px solid #e5e7eb;border-radius:6px;padding:5px 11px;font-size:13px;font-family:inherit">
-      <option value="hoy">Hoy</option><option value="semana">Esta semana</option>
-      <option value="mes" selected>Este mes</option><option value="todo">Todo el tiempo</option>
-    </select>
+    <select id="sperio" onchange="cambiarPeriodo()" ...>
+  <option value="hoy">Hoy</option>
+  <option value="ayer">Ayer</option>
+  <option value="semana">Esta semana</option>
+  <option value="mes" selected>Este mes</option><option value="todo">Todo el tiempo</option>
+  <option value="custom">📆 Personalizado...</option>
+</select>
+<div id="stats-custom" style="display:none;align-items:center;gap:7px;flex-wrap:wrap">
+  <span style="font-size:12px;color:var(--gris);font-weight:600">Desde:</span>
+  <input type="date" id="stats-desde" style="border:1.5px solid #e5e7eb;border-radius:6px;padding:4px 9px;font-size:13px">
+  <span style="font-size:12px;color:var(--gris);font-weight:600">Hasta:</span>
+  <input type="date" id="stats-hasta" style="border:1.5px solid #e5e7eb;border-radius:6px;padding:4px 9px;font-size:13px">
+  <button class="btn bv bsm" onclick="renderStats()">✅ Aplicar</button>
+</div>
     <span style="font-weight:700;color:var(--verde);font-size:13px">📊 Consulta:</span>
     <select id="scons" onchange="renderStats()" style="border:1.5px solid #e5e7eb;border-radius:6px;padding:5px 11px;font-size:13px;font-family:inherit;min-width:200px">
       <option value="resumen">📈 Resumen general</option>
@@ -1613,13 +1623,34 @@ function regMovCaja(){
 }
 
 // ESTADISTICAS
+function cambiarPeriodo(){
+  const v=document.getElementById('sperio').value;
+  const cust=document.getElementById('stats-custom');
+  if(v==='custom'){
+    cust.style.display='flex';
+    const now=new Date();
+    if(!document.getElementById('stats-desde').value)
+      document.getElementById('stats-desde').value=now.toISOString().slice(0,7)+'-01';
+    if(!document.getElementById('stats-hasta').value)
+      document.getElementById('stats-hasta').value=now.toISOString().slice(0,10);
+  } else {
+    cust.style.display='none';
+    renderStats();
+  }
+}
 function getFiltro(){
   const v=document.getElementById('sperio').value;const now=new Date();
   if(v==='hoy')return function(d){return d===hoy();};
   if(v==='semana'){const ini=new Date(now);ini.setDate(now.getDate()-now.getDay());const is=ini.toISOString().slice(0,10);return function(d){return d>=is;};}
   if(v==='mes'){const ms=now.toISOString().slice(0,7);return function(d){return d&&d.startsWith(ms);};}
+  if(v==='custom'){
+    const desde=document.getElementById('stats-desde').value;
+    const hasta=document.getElementById('stats-hasta').value;
+    return function(d){return d&&(!desde||d>=desde)&&(!hasta||d<=hasta);};
+  }
   return function(){return true;};
 }
+
 function renderStats(){
   const f=getFiltro();
   const vf=DB.ventas.filter(function(v){return f(v.fecha);});
