@@ -391,7 +391,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
       <button class="btn bv" style="margin-top:18px" onclick="abrirTurno()">🔓 Abrir Turno</button>
     </div>
   </div>
-  <div id="caja-con-turno" style="display:none">
+  <div id="caja-con-turno" style="display:none;min-height:100px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
       <div id="caja-turno-badge" style="background:var(--verde-suave);color:var(--verde);padding:7px 16px;border-radius:20px;font-size:13px;font-weight:700"></div>
       <button class="btn br" onclick="cerrarTurno()">🔒 Cerrar Turno</button>
@@ -1692,20 +1692,7 @@ function imprimirTicket(){
   w.print();
 }
 
-// Alerta caja no cerrada ayer
-const ay=new Date();ay.setDate(ay.getDate()-1);
-const ayStr=ay.toISOString().slice(0,10);
-const tuvoCierre=DB.caja.some(function(m){return m.fecha===ayStr&&m.tipo==='cierre';});
-const tuvoMovAyer=DB.caja.some(function(m){return m.fecha===ayStr;});
-const alertaEl=document.getElementById('caja-alerta');
-if(alertaEl){
-  if(tuvoMovAyer&&!tuvoCierre){
-    alertaEl.style.display='block';
-    alertaEl.innerHTML='⚠️ No registraste el cierre de caja de ayer ('+ayStr+'). Te recomendamos cerrarlo antes de seguir.';
-  } else {
-    alertaEl.style.display='none';
-  }
-}
+
 
 
 
@@ -1715,6 +1702,20 @@ function turnoActivo(){
 }
 function renderCaja(){
   const ta=turnoActivo();
+  // Alerta caja no cerrada ayer
+  const ay=new Date();ay.setDate(ay.getDate()-1);
+  const ayStr=ay.toISOString().slice(0,10);
+  const tuvoCierre=DB.turnos.some(function(t){return t.fecha===ayStr&&t.cierre;});
+  const tuvoMovAyer=DB.ventas.some(function(v){return v.fecha===ayStr;})||DB.caja.some(function(m){return m.fecha===ayStr;});
+  const alertaEl=document.getElementById('caja-alerta');
+  if(alertaEl){
+    if(tuvoMovAyer&&!tuvoCierre){
+      alertaEl.style.display='block';
+      alertaEl.innerHTML='⚠️ No registraste el cierre de caja de ayer ('+ayStr+'). Recordá cerrar el turno al finalizar el día.';
+    } else {
+      alertaEl.style.display='none';
+    }
+  }
   document.getElementById('caja-sin-turno').style.display=ta?'none':'block';
   document.getElementById('caja-con-turno').style.display=ta?'block':'none';
   if(ta){
