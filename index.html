@@ -1790,7 +1790,8 @@ function cerrarTurno(){
       '<td class="arqueo-dif-'+p.replace(/\s/g,'_')+'" style="padding:8px 10px;font-size:13px;font-weight:600">—</td>'+
     '</tr>';
   });
-  const totalEsperado=(ta.fondo||0)+totalSistema+ingEx-salEx;
+  const efectivoSistema=venTurno.filter(function(v){return v.pago==='Efectivo';}).reduce(function(s,v){return s+v.total;},0);
+const totalEsperado=(ta.fondo||0)+efectivoSistema+ingEx-salEx;
   document.getElementById('arqueo-body').innerHTML=filas;
   document.getElementById('arqueo-fondo').textContent=fmt(ta.fondo||0);
   document.getElementById('arqueo-ventas').textContent=fmt(totalSistema);
