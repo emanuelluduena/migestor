@@ -494,7 +494,13 @@ tbody td{padding:9px 13px;vertical-align:middle;}
         </select>
       </div>
       <div class="fg"><label>Descripción</label><input type="text" id="gdesc" placeholder="Detalle..."></div>
-      <div class="fg" id="bloque-prov-gasto" style="display:none"><label>Proveedor</label><select id="gasto-prov"><option value="">-- Seleccioná proveedor --</option></select></div>
+      <div class="fg" id="bloque-prov-gasto" style="display:none">
+  <label>Proveedor</label>
+  <div style="display:flex;gap:6px">
+    <select id="gasto-prov" style="flex:1"><option value="">-- Seleccioná proveedor --</option></select>
+    <button class="btn bv bsm" onclick="abrirProvDesdeGasto()" title="Nuevo proveedor">➕</button>
+  </div>
+</div>
       <div class="fg"><label>Método de Pago</label>
         <select id="gmet">
           <option value="efectivo">💵 Efectivo (descuenta caja)</option>
@@ -2264,6 +2270,24 @@ function renderGastos(){
 }
 _pgRender['gastos'] = renderGastos;
 
+function abrirProvDesdeGasto(){
+  abrirProv();
+  const origGuardar = guardarProv;
+  guardarProv = function(){
+    origGuardar();
+    const sel = document.getElementById('gasto-prov');
+    if(sel){
+      sel.innerHTML='<option value="">-- Seleccioná proveedor --</option>'+
+        [...DB.provs].sort(function(a,b){return a.nom.localeCompare(b.nom);}).map(function(p){
+          return '<option value="'+p.nom+'">'+p.nom+'</option>';
+        }).join('');
+      const ultimo = DB.provs[DB.provs.length-1];
+      if(ultimo) sel.value = ultimo.nom;
+    }
+    guardarProv = origGuardar;
+  };
+}
+
 function cambioCategGasto(){
   const cat=document.getElementById('gcat').value;
   const bloque=document.getElementById('bloque-prov-gasto');
@@ -2271,7 +2295,7 @@ function cambioCategGasto(){
   if(cat==='Pago a Proveedor'){
     bloque.style.display='block';
     sel.innerHTML='<option value="">-- Seleccioná proveedor --</option>'+
-      DB.provs.map(function(p){return '<option value="'+p.nom+'">'+p.nom+'</option>';}).join('');
+  [...DB.provs].sort(function(a,b){return a.nom.localeCompare(b.nom);}).map(function(p){return '<option value="'+p.nom+'">'+p.nom+'</option>';}).join('');
   } else {
     bloque.style.display='none';
     sel.value='';
