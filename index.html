@@ -1915,9 +1915,7 @@ function renderCaja(){
     const ingEx=movTurno.filter(function(m){return m.tipo==='entrada';}).reduce(function(s,m){return s+m.monto;},0);
     const salEx=movTurno.filter(function(m){return m.tipo==='salida';}).reduce(function(s,m){return s+m.monto;},0);
     const tot=(ta.fondo||0)+venEfectivo+ingEx-salEx;
-    document.getElementById('cajres').innerHTML=
-      // Desglose por forma de pago (solo las que tienen monto)
-const pagosDetalle = ['Efectivo','Transferencia','Débito','Crédito','QR','Cuenta Corriente'];
+    const pagosDetalle = ['Efectivo','Transferencia','Débito','Crédito','QR','Cuenta Corriente'];
 let tarjetasPago = '';
 pagosDetalle.forEach(function(p){
   const monto = venTurno.filter(function(v){return v.pago===p;}).reduce(function(s,v){return s+v.total;},0);
@@ -1925,7 +1923,7 @@ pagosDetalle.forEach(function(p){
   tarjetasPago += '<div class="cajcard"><div class="cajmnt tv">'+fmt(monto)+'</div><div class="cajlbl">'+p+'</div></div>';
 });
 if(!tarjetasPago) tarjetasPago = '<div class="cajcard"><div class="cajmnt" style="color:var(--gris)">$0,00</div><div class="cajlbl">Sin ventas aún</div></div>';
-
+document.getElementById('cajres').innerHTML=
   '<div class="cajcard"><div class="cajmnt tv">'+fmt(venTotal)+'</div><div class="cajlbl">Ventas del turno</div></div>'+
   '<div class="cajcard"><div class="cajmnt" style="color:var(--verde-claro)">'+fmt(ingEx)+'</div><div class="cajlbl">Ingresos extra</div></div>'+
   '<div class="cajcard"><div class="cajmnt tr2">'+fmt(salEx)+'</div><div class="cajlbl">Egresos</div></div>'+
