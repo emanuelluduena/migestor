@@ -127,12 +127,30 @@ tbody td{padding:9px 13px;vertical-align:middle;}
 </style>
 </head>
 <body>
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#1a4a2e 0%,#2d7a4f 100%);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:0;">
+  <div style="background:white;border-radius:16px;padding:40px 36px;width:90%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;">
+    <div style="font-size:48px;margin-bottom:8px;">🌿</div>
+    <div style="font-family:'Fraunces',serif;font-size:22px;color:#1a4a2e;font-weight:700;margin-bottom:4px;" id="login-nombre-tienda">Almacén Natural</div>
+    <div style="font-size:12px;color:#888;margin-bottom:28px;">Sistema de Gestión</div>
+    <div style="text-align:left;margin-bottom:14px;">
+      <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:5px;">Usuario</label>
+      <input id="login-usr" type="text" placeholder="Usuario..." style="width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;font-family:'DM Sans',sans-serif;" onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
+    </div>
+    <div style="text-align:left;margin-bottom:22px;">
+      <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:5px;">Contraseña</label>
+      <input id="login-pass" type="password" placeholder="Contraseña..." style="width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;font-family:'DM Sans',sans-serif;" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button onclick="doLogin()" style="width:100%;padding:12px;background:linear-gradient(135deg,#1a4a2e,#2d7a4f);color:white;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">Ingresar</button>
+    <div id="login-err" style="color:#e74c3c;font-size:12px;margin-top:12px;display:none;">Usuario o contraseña incorrectos</div>
+  </div>
+</div>
+
 <header>
   <div class="hlogo">
     <span style="font-size:26px">🌿</span>
     <div><div class="nombre">Almacén Natural</div><div class="sub">Sistema de Gestión</div></div>
   </div>
-  <div class="hinfo"><span>📅 <span id="fhdr"></span></span><span>🇦🇷 Monotributista</span></div>
+  <div class="hinfo"><span>📅 <span id="fhdr"></span></span><span>🇦🇷 Monotributista</span><span id="usr-badge" style="background:rgba(255,255,255,0.2);border-radius:20px;padding:3px 10px;font-size:12px;cursor:pointer;" onclick="doLogout()" title="Cerrar sesión">👤 <span id="usr-badge-nom"></span> · Salir</span></div>
 </header>
 <nav id="nav">
   <button class="tab activo" onclick="irA('inicio')" data-tab="inicio"><span class="ti">🏠</span>Inicio</button>
@@ -763,6 +781,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
     <div class="pit"><label>Lista 3 — %</label><input type="number" id="art-u3" value="20" oninput="calcPrecios()"><div class="pc" id="art-p3">Precio: $0,00</div></div>
     <div class="pit may"><label>💼 Mayor — %</label><input type="number" id="art-um" value="15" oninput="calcPrecios()"><div class="pc" id="art-pm" style="color:var(--tierra)">Precio: $0,00</div><div style="margin-top:7px"><label style="font-size:10px;color:var(--tierra)">A partir de (cant.)</label><input type="number" id="art-cm" value="2" min="1" style="margin-top:3px"></div><div style="margin-top:7px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="art-usapm" checked><label style="font-size:10px;color:var(--tierra)">Activar precio mayor</label></div>
   </div>
+  </div>
   <div class="mfoot"><button class="btn bg" onclick="cerrar('m-art')">Cancelar</button><button class="btn bv" onclick="guardarArt()">💾 Guardar</button></div>
 </div></div>
 
@@ -795,14 +814,19 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   <div class="mfoot"><button class="btn bg" onclick="cerrar('m-cli')">Cancelar</button><button class="btn bv" onclick="guardarCli()">💾 Guardar</button></div>
 </div></div>
 
-<div class="moverlay" id="m-usr"><div class="modal">
+<div class="moverlay" id="m-usr"><div class="modal" style="max-width:640px">
   <h2>👤 <span id="musr-tit">Nuevo Usuario</span></h2>
   <input type="hidden" id="usr-id">
   <div class="fgrid">
     <div class="fg"><label>Nombre Completo</label><input type="text" id="usr-nom"></div>
     <div class="fg"><label>Usuario (login)</label><input type="text" id="usr-usr"></div>
     <div class="fg"><label>Contraseña</label><input type="password" id="usr-pass"></div>
-    <div class="fg"><label>Rol</label><select id="usr-rol"><option>Administrador</option><option>Vendedor</option><option>Cajero</option><option>Solo Consulta</option></select></div>
+    <div class="fg"><label>Rol</label><select id="usr-rol" onchange="aplicarPermisosPorRol()"><option>Administrador</option><option>Vendedor</option><option>Cajero</option><option>Solo Consulta</option></select></div>
+  </div>
+  <div style="margin-top:16px;border-top:1px solid #eee;padding-top:14px;">
+    <div style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">🔐 Permisos de Módulos</div>
+    <div style="font-size:11px;color:#888;margin-bottom:10px;">Al cambiar el rol se aplican los permisos predeterminados. Podés ajustarlos manualmente.</div>
+    <div id="permisos-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;"></div>
   </div>
   <div class="mfoot"><button class="btn bg" onclick="cerrar('m-usr')">Cancelar</button><button class="btn bv" onclick="guardarUsr()">💾 Guardar</button></div>
 </div></div>
@@ -913,6 +937,116 @@ function saveDB() {
     Object.keys(_renderCache).forEach(k => delete _renderCache[k]);
   }
 }
+
+// ═══════════════════════ SISTEMA DE LOGIN Y PERMISOS ═══════════════════════
+const MODS_NOMBRES = {
+  inicio:'Inicio', articulos:'Artículos', proveedores:'Proveedores',
+  clientes:'Clientes', usuarios:'Usuarios', compras:'Compras',
+  ventas:'Ventas', caja:'Caja', estadisticas:'Estadísticas',
+  gastos:'Gastos', contabilidad:'Contabilidad', precios:'Precios',
+  config:'Configuración', bitacora:'Bitácora', importar:'Importar/Export.',
+  asistente:'Asistente IA'
+};
+const PERMISOS_ROL = {
+  'Administrador': Object.keys(MODS_NOMBRES),
+  'Vendedor':      ['inicio','ventas','articulos','clientes','proveedores','precios','asistente'],
+  'Cajero':        ['inicio','ventas','caja','asistente'],
+  'Solo Consulta': ['inicio','articulos','estadisticas','precios','asistente']
+};
+
+let _sesion = null; // usuario logueado
+
+function doLogin() {
+  const usr = document.getElementById('login-usr').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const u = DB.usrs.find(x => x.usr === usr && x.pass === pass && x.activo !== false);
+  if (!u) {
+    document.getElementById('login-err').style.display = 'block';
+    document.getElementById('login-pass').value = '';
+    return;
+  }
+  _sesion = u;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('usr-badge-nom').textContent = u.nom;
+  aplicarPermisosMenues();
+  irA('inicio');
+}
+
+function doLogout() {
+  _sesion = null;
+  mostrarLogin();
+}
+
+function mostrarLogin() {
+  const ls = document.getElementById('login-screen');
+  ls.style.display = 'flex';
+  document.getElementById('login-usr').value = '';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-err').style.display = 'none';
+  setTimeout(()=>document.getElementById('login-usr').focus(), 100);
+  // Actualizar nombre tienda
+  if (DB.config && DB.config.nom) document.getElementById('login-nombre-tienda').textContent = DB.config.nom;
+}
+
+function getPermsUsuario(u) {
+  // Permisos guardados en el usuario, o defaults del rol
+  if (u.perms && Array.isArray(u.perms)) return u.perms;
+  return PERMISOS_ROL[u.rol] || ['inicio'];
+}
+
+function tienePermiso(mod) {
+  if (!_sesion) return false;
+  if (_sesion.rol === 'Administrador') return true;
+  return getPermsUsuario(_sesion).includes(mod);
+}
+
+function aplicarPermisosMenues() {
+  document.querySelectorAll('.tab[data-tab]').forEach(function(btn) {
+    const mod = btn.getAttribute('data-tab');
+    const perm = tienePermiso(mod);
+    if (perm) {
+      btn.style.opacity = '';
+      btn.style.pointerEvents = '';
+      btn.style.filter = '';
+      btn.title = '';
+    } else {
+      btn.style.opacity = '0.4';
+      btn.style.pointerEvents = 'none';
+      btn.style.filter = 'grayscale(1)';
+      btn.title = 'Sin permiso';
+    }
+  });
+}
+
+// (verificación de permisos integrada en irA)
+
+// ── Grilla de permisos en modal usuario ──
+function abrirPermisosMod(permsActivos) {
+  const grid = document.getElementById('permisos-grid');
+  if (!grid) return;
+  const todos = Object.keys(MODS_NOMBRES);
+  grid.innerHTML = todos.map(function(mod) {
+    const checked = permsActivos.includes(mod) ? 'checked' : '';
+    const esBase = (mod === 'inicio');
+    return '<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:5px 8px;border:1.5px solid #e5e7eb;border-radius:7px;cursor:pointer;background:#fafafa;">'+
+      '<input type="checkbox" id="perm-'+mod+'" '+checked+(esBase?' disabled':'')+' style="accent-color:#2d7a4f;">'+
+      MODS_NOMBRES[mod]+
+    '</label>';
+  }).join('');
+}
+
+function aplicarPermisosPorRol() {
+  const rol = document.getElementById('usr-rol').value;
+  const perms = PERMISOS_ROL[rol] || ['inicio'];
+  abrirPermisosMod(perms);
+}
+
+function leerPermisosForm() {
+  return Object.keys(MODS_NOMBRES).filter(function(mod) {
+    const el = document.getElementById('perm-'+mod);
+    return el && el.checked;
+  });
+}
 function nid(k) { const id=DB.ids[k]; DB.ids[k]++; saveDB(); return id; }
 // ═══════════════════════ PAGINACIÓN ═══════════════════════
 const PG_SIZE = 25;
@@ -969,6 +1103,11 @@ function cerrar(id) { document.getElementById(id).classList.remove('open'); }
 function abrir(id) { document.getElementById(id).classList.add('open'); }
 document.querySelectorAll('.moverlay').forEach(m => m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); }));
 
+// Mostrar login al cargar
+window.addEventListener('load', function() {
+  mostrarLogin();
+});
+
 // ═══════════════════════ NAVEGACIÓN ═══════════════════════
 
 const _renderCache = {};
@@ -996,6 +1135,11 @@ function _firma(tab) {
 }
 
 function irA(tab) {
+  // Verificar permiso (si hay sesión activa)
+  if (typeof _sesion !== 'undefined' && _sesion && !tienePermiso(tab)) {
+    toast('No tenés permiso para acceder a este módulo', 'r');
+    return;
+  }
   try {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('activo'));
     document.querySelectorAll('.modulo').forEach(m => m.classList.remove('activo'));
@@ -1377,10 +1521,38 @@ async function delCli(id){if(!await confirmar('¿Eliminás este cliente?'))retur
 
 // ═══════════════════════ USUARIOS ═══════════════════════
 function renderUsrs(){const tb=document.getElementById('tusr');tb.innerHTML=DB.usrs.map(u=>'<tr><td>'+u.id+'</td><td>'+u.nom+'</td><td><code>'+u.usr+'</code></td><td><span class="bdg '+(u.rol==='Administrador'?'bt2':'bv2')+'">'+u.rol+'</span></td><td><span class="bdg '+(u.activo!==false?'bv2':'br2')+'">'+(u.activo!==false?'Activo':'Inactivo')+'</span></td><td><button class="btn bg bsm" onclick="editUsr('+u.id+')">✏️</button>'+(u.id!==1?' <button class="btn br bsm" onclick="delUsr('+u.id+')">🗑️</button>':'')+'</td></tr>').join('');}
-function abrirUsr(){document.getElementById('usr-id').value='';document.getElementById('musr-tit').textContent='Nuevo Usuario';['nom','usr','pass'].forEach(f=>document.getElementById('usr-'+f).value='');document.getElementById('usr-rol').value='Vendedor';abrir('m-usr');}
-function editUsr(id){const u=DB.usrs.find(x=>x.id===id);if(!u)return;document.getElementById('usr-id').value=id;document.getElementById('musr-tit').textContent='Editar Usuario';document.getElementById('usr-nom').value=u.nom;document.getElementById('usr-usr').value=u.usr;document.getElementById('usr-pass').value=u.pass||'';document.getElementById('usr-rol').value=u.rol;abrir('m-usr');}
-function guardarUsr(){const nom=document.getElementById('usr-nom').value.trim(),usr=document.getElementById('usr-usr').value.trim();if(!nom||!usr){toast('Completá nombre y usuario','a');return;}const d={nom,usr,pass:document.getElementById('usr-pass').value,rol:document.getElementById('usr-rol').value,activo:true};const eid=document.getElementById('usr-id').value;if(eid){const i=DB.usrs.findIndex(x=>x.id==eid);if(i>=0)DB.usrs[i]={...DB.usrs[i],...d};}else{d.id=nid('usr');DB.usrs.push(d);}saveDB();cerrar('m-usr');renderUsrs();}
-async function delUsr(id){if(id===1){toast('No podés eliminar el admin','r');return;}if(!await confirmar('¿Eliminás este usuario?'))return;DB.usrs=DB.usrs.filter(u=>u.id!==id);saveDB();renderUsrs();}
+function abrirUsr(){
+  document.getElementById('usr-id').value='';
+  document.getElementById('musr-tit').textContent='Nuevo Usuario';
+  ['nom','usr','pass'].forEach(f=>document.getElementById('usr-'+f).value='');
+  document.getElementById('usr-rol').value='Vendedor';
+  abrirPermisosMod(PERMISOS_ROL['Vendedor']||['inicio']);
+  abrir('m-usr');
+}
+function editUsr(id){
+  const u=DB.usrs.find(x=>x.id==id);if(!u)return;
+  document.getElementById('usr-id').value=id;
+  document.getElementById('musr-tit').textContent='Editar Usuario';
+  document.getElementById('usr-nom').value=u.nom;
+  document.getElementById('usr-usr').value=u.usr;
+  document.getElementById('usr-pass').value=u.pass||'';
+  document.getElementById('usr-rol').value=u.rol;
+  abrirPermisosMod(getPermsUsuario(u));
+  abrir('m-usr');
+}
+function guardarUsr(){
+  const nom=document.getElementById('usr-nom').value.trim(),usr=document.getElementById('usr-usr').value.trim();
+  if(!nom||!usr){toast('Completá nombre y usuario','a');return;}
+  const perms=leerPermisosForm();
+  const d={nom,usr,pass:document.getElementById('usr-pass').value,rol:document.getElementById('usr-rol').value,activo:true,perms:perms};
+  const eid=document.getElementById('usr-id').value;
+  if(eid){const i=DB.usrs.findIndex(x=>x.id==eid);if(i>=0)DB.usrs[i]={...DB.usrs[i],...d};}
+  else{d.id=nid('usr');DB.usrs.push(d);}
+  saveDB();cerrar('m-usr');renderUsrs();
+  // Si se editó el usuario activo, actualizar permisos del menú
+  if(_sesion && _sesion.id==eid){_sesion=DB.usrs.find(x=>x.id==_sesion.id)||_sesion;aplicarPermisosMenues();}
+}
+async function delUsr(id){if(id==1){toast('No podés eliminar el admin','r');return;}if(!await confirmar('¿Eliminás este usuario?'))return;DB.usrs=DB.usrs.filter(u=>u.id!==id);saveDB();renderUsrs();}
 
 // ═══════════════════════ COMPRAS ═══════════════════════
 let itemsComp=[];
