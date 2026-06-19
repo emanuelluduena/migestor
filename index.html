@@ -406,7 +406,13 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   <div id="caja-con-turno" style="display:none;min-height:100px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
       <div id="caja-turno-badge" style="background:var(--verde-suave);color:var(--verde);padding:7px 16px;border-radius:20px;font-size:13px;font-weight:700"></div>
-      <button class="btn br" onclick="cerrarTurno()">🔒 Cerrar Turno</button>
+      <div style="display:flex;gap:8px">
+        
+        <div style="display:flex;gap:8px">
+        <button class="btn bg" onclick="abrirModalFondo()">✏️ Editar fondo inicial</button>
+        <button class="btn br" onclick="cerrarTurno()">🔒 Cerrar Turno</button>
+      </div>
+      </div>
     </div>
     <div class="cajres" id="cajres"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
@@ -1953,6 +1959,26 @@ function abrirTurno(){
   saveDB();renderCaja();
   toast('Turno abierto','v');
 }
+
+
+function abrirModalFondo(){
+  const ta=turnoActivo();
+  if(!ta){toast('No hay turno abierto','a');return;}
+  document.getElementById('modal-fondo-input').value=ta.fondo||0;
+  abrir('m-fondo');
+}
+function guardarFondoCaja(){
+  const ta=turnoActivo();
+  if(!ta)return;
+  const nuevo=parseFloat(document.getElementById('modal-fondo-input').value)||0;
+  if(nuevo<0){toast('El monto no puede ser negativo','r');return;}
+  ta.fondo=nuevo;
+  saveDB();
+  renderCaja();
+  cerrar('m-fondo');
+  toast('Fondo inicial actualizado a '+fmt(nuevo),'v');
+}
+
 function cerrarTurno(){
   const ta=turnoActivo();
   if(!ta){toast('No hay turno abierto','a');return;}
@@ -3010,6 +3036,21 @@ if(!DB.config) DB.config={};
 aplicarConfig();
 renderInicio();
 </script>
+<div id="m-fondo" class="moverlay">
+  <div class="modal" style="max-width:380px">
+    <h2>✏️ Editar fondo inicial</h2>
+    <p style="font-size:13px;color:var(--gris);margin-bottom:16px">Corregí el monto con el que abriste la caja. Esto no genera un movimiento — solo ajusta el fondo inicial del turno.</p>
+    <div class="fg">
+      <label>Fondo inicial ($)</label>
+      <input type="number" id="modal-fondo-input" placeholder="0.00" min="0">
+    </div>
+    <div class="mfoot">
+      <button class="btn bg" onclick="cerrar('m-fondo')">Cancelar</button>
+      <button class="btn bv" onclick="guardarFondoCaja()">✅ Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div id="m-arqueo" class="moverlay">
   <div class="modal" style="max-width:580px">
     <h2>🔒 Cerrar Turno — Arqueo de Caja</h2>
