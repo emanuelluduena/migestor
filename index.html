@@ -1438,15 +1438,21 @@ function renderPVArts(lista){
   if(!arts.length){tb.innerHTML='<tr><td colspan="5"><div class="vacio"><div class="vi">📦</div><p>Sin artículos</p></div></td></tr>';if(pgEl)pgEl.innerHTML='';_filaSelPV=-1;return;}
   const pg=paginar('pv',arts,20);
   tb.innerHTML=pg.slice.map(function(a,idx){
-    return '<tr id="pvrow-'+idx+'" class="pvfila" style="cursor:pointer" onmouseover="resaltarFila('+idx+')">'+
+    var esL1=L==='lista1',esL2=L==='lista2',esL3=L==='lista3',esLM=L==='mayor';
+    var s1=esL1?';outline:2px solid #059669;outline-offset:1px':'';
+    var s2=esL2?';outline:2px solid #2563eb;outline-offset:1px':'';
+    var s3=esL3?';outline:2px solid #16a34a;outline-offset:1px':'';
+    var sm=esLM?';outline:2px solid #7c3aed;outline-offset:1px':'';
+    return '<tr id="pvrow-'+idx+'" class="pvfila" style="cursor:pointer" '+
+      'onclick="addTicketLista('+a.id+',\''+L+'\')" '+
+      'onmouseover="resaltarFila('+idx+')" title="Agregar con '+L+'">'+
       '<td><span class="bdg bv2" style="font-size:11px">'+a.cod+'</span></td>'+
       '<td style="font-size:12px">'+a.nom+'</td>'+
       '<td><span class="bdg '+(a.stk>0?'bv2':'br2')+'" style="font-size:11px">'+a.stk+'</span></td>'+
-      '<td class="tv" style="font-size:12px"><button class="btn bv bsm" style="font-size:11px;padding:2px 6px" onclick="addTicketLista('+a.id+',\'lista1\')">'+fmt(getPrecio(a,'lista1',1))+'</button></td>'+
-      '<td class="tv" style="font-size:12px"><button class="btn bt bsm" style="font-size:11px;padding:2px 6px" onclick="addTicketLista('+a.id+',\'lista2\')">'+fmt(getPrecio(a,'lista2',1))+'</button></td>'+
-      '<td class="tv" style="font-size:12px"><button class="btn bg bsm" style="font-size:11px;padding:2px 6px" onclick="addTicketLista('+a.id+',\'lista3\')">'+fmt(getPrecio(a,'lista3',1))+'</button></td>'+
-      '<td class="tv" style="font-size:12px"><button class="btn" style="font-size:11px;padding:2px 6px;background:#8b5cf6;color:white;border-radius:6px" onclick="addTicketLista('+a.id+',\'mayor\')">'+fmt(getPrecio(a,'mayor',1))+'</button></td>'+
-      '<td><button class="btn bv bsm" onclick="addTicketLista('+a.id+',\''+L+'\')">➕</button></td>'+
+      '<td class="tv" style="font-size:12px"><button class="btn bv bsm" style="font-size:11px;padding:2px 6px'+s1+'" onclick="event.stopPropagation();addTicketLista('+a.id+',\'lista1\')">'+fmt(getPrecio(a,'lista1',1))+'</button></td>'+
+      '<td class="tv" style="font-size:12px"><button class="btn bt bsm" style="font-size:11px;padding:2px 6px'+s2+'" onclick="event.stopPropagation();addTicketLista('+a.id+',\'lista2\')">'+fmt(getPrecio(a,'lista2',1))+'</button></td>'+
+      '<td class="tv" style="font-size:12px"><button class="btn bg bsm" style="font-size:11px;padding:2px 6px'+s3+'" onclick="event.stopPropagation();addTicketLista('+a.id+',\'lista3\')">'+fmt(getPrecio(a,'lista3',1))+'</button></td>'+
+      '<td class="tv" style="font-size:12px"><button class="btn" style="font-size:11px;padding:2px 6px;background:#8b5cf6;color:white;border-radius:6px'+sm+'" onclick="event.stopPropagation();addTicketLista('+a.id+',\'mayor\')">'+fmt(getPrecio(a,'mayor',1))+'</button></td>'+
     '</tr>';
   }).join('');
   if(pgEl)pgEl.innerHTML=pg.nav;
