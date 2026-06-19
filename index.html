@@ -972,6 +972,7 @@ function doLogin() {
     return;
   }
   _sesion = u;
+  localStorage.setItem('sesionActiva', JSON.stringify(u));
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('usr-badge-nom').textContent = u.nom;
   aplicarPermisosMenues();
@@ -980,6 +981,7 @@ function doLogin() {
 
 function doLogout() {
   _sesion = null;
+  localStorage.removeItem('sesionActiva');
   mostrarLogin();
 }
 
@@ -1111,8 +1113,9 @@ document.querySelectorAll('.moverlay').forEach(m => m.addEventListener('click', 
 
 // Mostrar login al cargar
 window.addEventListener('load', function() {
-  mostrarLogin();
+  if(!_sesion) mostrarLogin();
 });
+
 
 // ═══════════════════════ NAVEGACIÓN ═══════════════════════
 
@@ -1913,10 +1916,22 @@ function renderCaja(){
     const salEx=movTurno.filter(function(m){return m.tipo==='salida';}).reduce(function(s,m){return s+m.monto;},0);
     const tot=(ta.fondo||0)+venEfectivo+ingEx-salEx;
     document.getElementById('cajres').innerHTML=
-      '<div class="cajcard"><div class="cajmnt tv">'+fmt(venTotal)+'</div><div class="cajlbl">Ventas del turno</div></div>'+
-      '<div class="cajcard"><div class="cajmnt" style="color:var(--verde-claro)">'+fmt(ingEx)+'</div><div class="cajlbl">Ingresos extra</div></div>'+
-      '<div class="cajcard"><div class="cajmnt tr2">'+fmt(salEx)+'</div><div class="cajlbl">Egresos</div></div>'+
-      '<div class="cajcard" style="background:var(--verde-suave)"><div class="cajmnt tv">'+fmt(tot)+'</div><div class="cajlbl">Total en Caja</div></div>';
+      // Desglose por forma de pago (solo las que tienen monto)
+const pagosDetalle = ['Efectivo','Transferencia','Débito','Crédito','QR','Cuenta Corriente'];
+let tarjetasPago = '';
+pagosDetalle.forEach(function(p){
+  const monto = venTurno.filter(function(v){return v.pago===p;}).reduce(function(s,v){return s+v.total;},0);
+  if(monto===0) return;
+  tarjetasPago += '<div class="cajcard"><div class="cajmnt tv">'+fmt(monto)+'</div><div class="cajlbl">'+p+'</div></div>';
+});
+if(!tarjetasPago) tarjetasPago = '<div class="cajcard"><div class="cajmnt" style="color:var(--gris)">$0,00</div><div class="cajlbl">Sin ventas aún</div></div>';
+
+  '<div class="cajcard"><div class="cajmnt tv">'+fmt(venTotal)+'</div><div class="cajlbl">Ventas del turno</div></div>'+
+  '<div class="cajcard"><div class="cajmnt" style="color:var(--verde-claro)">'+fmt(ingEx)+'</div><div class="cajlbl">Ingresos extra</div></div>'+
+  '<div class="cajcard"><div class="cajmnt tr2">'+fmt(salEx)+'</div><div class="cajlbl">Egresos</div></div>'+
+  '<div class="cajcard" style="background:var(--verde-suave)"><div class="cajmnt tv">'+fmt(tot)+'</div><div class="cajlbl">Total en Caja</div></div>'+
+  '<div style="grid-column:1/-1;height:1px;background:#eee;margin:4px 0"></div>'+
+  tarjetasPago;
     const tb=document.getElementById('tcajmov');
     const todos=[
       ...venTurno.map(function(v){return{hora:v.hora,tipo:'venta',desc:'Venta #'+v.id+' - '+v.clinom,monto:v.total};}),
@@ -3033,6 +3048,20 @@ DB.arts.forEach(function(a){
 });
 saveDB();
 if(!DB.config) DB.config={};
+const _sesionGuardada = localStorage.getItem('sesionActiva');
+if(_sesionGuardada){
+  try{
+    _sesion = JSON.parse(_sesionGuardada);
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('usr-badge-nom').textContent=_sesion.nom;
+    aplicarPermisosMenues();
+  }catch(e){
+    localStorage.removeItem('sesionActiva');
+    mostrarLogin();
+  }
+} else {
+  mostrarLogin();
+}
 aplicarConfig();
 renderInicio();
 </script>
