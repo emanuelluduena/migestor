@@ -1409,12 +1409,11 @@ let _filaSelPV=-1;
 
 function getPrecio(art,lista,cant){
   if(art.usapm!==false&&cant>=art.cm)return (art.um===0&&art.pm)?art.pm:pxc(art.cos,art.um);
-  if(lista==='lista2')return (art.u2===0&&art.p2)?art.p2:pxc(art.cos,a261_t.u2);
+  if(lista==='lista2')return (art.u2===0&&art.p2)?art.p2:pxc(art.cos,art.u2);
   if(lista==='lista3')return (art.u3===0&&art.p3)?art.p3:pxc(art.cos,art.u3);
   if(lista==='mayor')return (art.um===0&&art.pm)?art.pm:pxc(art.cos,art.um);
   return (art.u1===0&&art.p1)?art.p1:pxc(art.cos,art.u1);
 }
-
 function addTicketLista(id, lista){
   const prev = document.getElementById('pvlista').value;
   document.getElementById('pvlista').value = lista;
