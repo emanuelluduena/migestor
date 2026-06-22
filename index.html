@@ -714,17 +714,12 @@ tbody td{padding:9px 13px;vertical-align:middle;}
       </div>
     </div>
 
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
       <label style="font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer">
         <input type="checkbox" id="prec-sel-all" onchange="selTodosPrecios(this)"> Seleccionar todos
       </label>
       <span id="prec-count" style="font-size:12px;color:var(--gris)">0 seleccionados</span>
-      <button class="btn br bsm" onclick="aplicarCambioSeleccionados()">⚡ Aplicar % a seleccionados</button>
-      <div style="display:flex;align-items:center;gap:6px;background:var(--amarillo-suave,#fff8e1);border:1px solid #f0c040;border-radius:6px;padding:4px 10px">
-        <label style="font-size:12px;color:var(--gris);white-space:nowrap">💰 Nuevo costo:</label>
-        <input type="number" id="prec-nuevo-costo" min="0" step="0.01" placeholder="ej: 850" style="width:90px;border:1px solid #ddd;border-radius:4px;padding:3px 6px;font-size:13px">
-        <button class="btn ba bsm" onclick="aplicarCostoSeleccionados()" style="white-space:nowrap">Aplicar a seleccionados</button>
-      </div>
+      <button class="btn br bsm" onclick="aplicarCambioSeleccionados()">⚡ Aplicar solo a seleccionados</button>
     </div>
 
     <div class="twrap"><table>
@@ -1562,7 +1557,6 @@ async function guardarArt() {
   }
   cerrar('m-art');
   await cargarArts();
-  filtArt();
   toast('Artículo guardado ✓','v');
 }
 
@@ -3387,19 +3381,6 @@ function aplicarCambioSeleccionados() {
   if(!ids.length){toast('Seleccioná al menos un artículo','a');return;}
   var arts = DB.arts.filter(function(a){return ids.includes(a.id);});
   aplicarCambio(arts);
-}
-
-function aplicarCostoSeleccionados() {
-  var ids = [...document.querySelectorAll('.prec-chk:checked')].map(function(c){return parseInt(c.value);});
-  if(!ids.length){toast('Seleccioná al menos un artículo','a');return;}
-  var nuevoCosto = parseFloat(document.getElementById('prec-nuevo-costo').value);
-  if(isNaN(nuevoCosto) || nuevoCosto < 0){toast('Ingresá un costo válido','a');return;}
-  var arts = DB.arts.filter(function(a){return ids.includes(a.id);});
-  arts.forEach(function(a){ a.cos = nuevoCosto; });
-  saveDB();
-  renderPreciosFiltro();
-  document.getElementById('prec-nuevo-costo').value='';
-  toast('Costo actualizado en '+arts.length+' artículo'+(arts.length!==1?'s':''),'v');
 }
 
 function importarCSVPrecios() {
