@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Migración — Almacén Natural → Supabase</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f1117; color: #e2e8f0; padding: 32px; }
+    h1 { font-size: 1.4rem; margin-bottom: 4px; color: #3ecf8e; }
+    p.sub { font-size: 0.85rem; color: #94a3b8; margin-bottom: 28px; }
+    .card { background: #1c1f2e; border: 1px solid #2d3148; border-radius: 10px; padding: 20px 24px; margin-bottom: 16px; }
+    .card h2 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; margin-bottom: 12px; }
+    label { display: block; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 4px; }
+    input, textarea {
+      width: 100%; padding: 8px 12px; border-radius: 6px;
+      border: 1px solid #2d3148; background: #0f1117; color: #e2e8f0;
+      font-size: 0.85rem; margin-bottom: 12px;
+    }
+    textarea { min-height: 120px; font-family: monospace; font-size: 0.78rem; }
+    button {
+      background: #3ecf8e; color: #0f1117; border: none; border-radius: 6px;
+      padding: 10px 24px; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+      width: 100%;
+    }
+    button:disabled { background: #2d5a45; color: #6b7280; cursor: not-allowed; }
+    #log {
+      background: #0a0c14; border: 1px solid #2d3148; border-radius: 8px;
+      padding: 16px; font-family: monospace; font-size: 0.8rem;
+      min-height: 200px; max-height: 400px; overflow-y: auto;
+      white-space: pre-wrap; line-height: 1.6;
+    }
+    .ok   { color: #3ecf8e; }
+    .err  { color: #f87171; }
+    .info { color: #94a3b8; }
+    .warn { color: #fbbf24; }
+  </style>
+</head>
+<body>
+
+<h1>🚀 Migración Almacén Natural → Supabase</h1>
+<p class="sub">Ejecutá este archivo en tu navegador. Los datos del localStorage se suben a Supabase.</p>
+
+<div class="card">
+  <h2>Configuración</h2>
+  <label>Project URL</label>
+  <input id="url" value="https://yabschiaphpiozajnwxx.supabase.co" />
+  <label>Service Role Key</label>
+  <input id="key" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhYnNjaGlhcGhwaW96YWpud3h4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjA4MTMyOCwiZXhwIjoyMDk3NjU3MzI4fQ.igkTeNNNPpCzYQzki_DC12BOP9Uqm_hUvkQZ8WOvoRY" />
+  <label>Nombre del negocio</label>
+  <input id="negocio" value="Almacén Natural" />
+  <label>Datos del localStorage (pegá el JSON exportado)</label>
+  <textarea id="datos">{"arts":[],"provs":[],"clis":[],"usrs":[{"id":1,"nom":"Administrador","usr":"admin","pass":"1234","rol":"Administrador","activo":true}],"bitacora":[],"comps":[],"ventas":[{"id":1,"fecha":"2026-06-19","hora":"12:03 p. m.","cliid":null,"clinom":"Consumidor Final","lista":"lista1","listaNom":"Lista 1","items":[{"aid":null,"nom":"Artículo manual","cant":1,"precio":1500,"esMayor":false,"manual":true}],"sub":1500,"desc":0,"total":1500,"pago":"Efectivo","turnoId":1},{"id":2,"fecha":"2026-06-19","hora":"12:03 p. m.","cliid":null,"clinom":"Consumidor Final","lista":"lista1","listaNom":"Lista 1","items":[{"aid":null,"nom":"Artículo manual","cant":1,"precio":20000,"esMayor":false,"manual":true}],"sub":20000,"desc":0,"total":20000,"pago":"Transferencia","turnoId":1},{"id":3,"fecha":"2026-06-19","hora":"12:04 p. m.","cliid":null,"clinom":"Consumidor Final","lista":"lista1","listaNom":"Lista 1","items":[{"aid":null,"nom":"Artículo manual","cant":1,"precio":3000,"esMayor":false,"manual":true}],"sub":3000,"desc":0,"total":3000,"pago":"Efectivo","turnoId":1}],"gastos":[],"caja":[],"config":{},"ids":{"art":1,"prov":1,"cli":1,"usr":2,"comp":1,"venta":4,"gasto":1,"caja":2},"turnos":[{"id":1,"fecha":"2026-06-19","apertura":"12:03 p. m.","cierre":null,"fondo":10000}]}</textarea>
+</div>
+
+<div class="card">
+  <h2>Ejecutar migración</h2>
+  <button id="btn" onclick="migrar()">▶ Iniciar migración</button>
+</div>
+
+<div class="card">
+  <h2>Log</h2>
+  <div id="log"><span class="info">Esperando...</span></div>
+</div>
+
+<script>
+const { createClient } = supabase;
+
+function log(msg, tipo = 'info') {
+  const el = document.getElementById('log');
+  const span = document.createElement('span');
+  span.className = tipo;
+  span.textContent = msg + '\n';
+  el.appendChild(span);
+  el.scrollTop = el.scrollHeight;
+}
+
+function limpiarLog() {
+  document.getElementById('log').innerHTML = '';
+}
+
+async function migrar() {
+  limpiarLog();
+  const btn = document.getElementById('btn');
+  btn.disabled = true;
+
+  const URL_PROYECTO = document.getElementById('url').value.trim();
+  const SERVICE_KEY  = document.getElementById('key').value.trim();
+  const NOMBRE_NEG   = document.getElementById('negocio').value.trim();
+  const rawData      = document.getElementById('datos').value.trim();
+
+  if (!URL_PROYECTO || !SERVICE_KEY || !NOMBRE_NEG || !rawData) {
+    log('❌ Completá todos los campos antes de continuar.', 'err');
+    btn.disabled = false;
+    return;
+  }
+
+  let data;
+  try {
+    data = JSON.parse(rawData);
+  } catch(e) {
+    log('❌ El JSON pegado no es válido. Revisá que esté completo.', 'err');
+    btn.disabled = false;
+    return;
+  }
+
+  const db = createClient(URL_PROYECTO, SERVICE_KEY);
+  log('✅ Conectado a Supabase', 'ok');
+
+  // ── 1. NEGOCIO ──────────────────────────────────────────
+  log('\n📦 Creando negocio...', 'info');
+  const config = data.config || {};
+  const { data: negocio, error: errNeg } = await db
+    .from('negocios')
+    .insert({
+      nombre:    NOMBRE_NEG,
+      slogan:    config.slogan    || null,
+      cuit:      config.cuit      || null,
+      direccion: config.direccion || null,
+      telefono:  config.telefono  || null,
+      email:     config.email     || null,
+    })
+    .select()
+    .single();
+
+  if (errNeg) { log('❌ Error creando negocio: ' + errNeg.message, 'err'); btn.disabled = false; return; }
+  const negocioId = negocio.id;
+  log(`✅ Negocio creado: ${NOMBRE_NEG} (${negocioId})`, 'ok');
+
+  // ── 2. SUCURSAL ─────────────────────────────────────────
+  log('\n🏬 Creando sucursal principal...', 'info');
+  const { data: sucursal, error: errSuc } = await db
+    .from('sucursales')
+    .insert({ negocio_id: negocioId, nombre: 'Casa Central' })
+    .select().single();
+
+  if (errSuc) { log('❌ Error creando sucursal: ' + errSuc.message, 'err'); btn.disabled = false; return; }
+  const sucursalId = sucursal.id;
+  log(`✅ Sucursal creada: Casa Central`, 'ok');
+
+  // ── 3. USUARIOS ─────────────────────────────────────────
+  log('\n👤 Migrando usuarios...', 'info');
+  const mapaUsuarios = {}; // id_viejo → uuid_nuevo
+  for (const u of (data.usrs || [])) {
+    const { data: uNew, error: errU } = await db
+      .from('usuarios')
+      .insert({
+        negocio_id:    negocioId,
+        sucursal_id:   sucursalId,
+        nombre:        u.nom,
+        username:      u.usr,
+        password_hash: u.pass, // ⚠️ en producción usar bcrypt
+        rol:           u.rol,
+        activo:        u.activo ?? true,
+      })
+      .select().single();
+    if (errU) { log(`⚠️ Usuario "${u.nom}": ${errU.message}`, 'warn'); continue; }
+    mapaUsuarios[u.id] = uNew.id;
+    log(`  ✅ Usuario: ${u.nom} (${u.rol})`, 'ok');
+  }
+
+  // ── 4. PROVEEDORES ──────────────────────────────────────
+  log('\n🚚 Migrando proveedores...', 'info');
+  const mapaProveedores = {};
+  if ((data.provs || []).length === 0) { log('  (sin proveedores)', 'info'); }
+  for (const p of (data.provs || [])) {
+    const { data: pNew, error: errP } = await db
+      .from('proveedores')
+      .insert({
+        negocio_id: negocioId,
+        nombre:     p.nom,
+        cuit:       p.cuit      || null,
+        telefono:   p.tel       || null,
+        email:      p.email     || null,
+        direccion:  p.dir       || null,
+        rubro:      p.rubro     || null,
+        notas:      p.notas     || null,
+      })
+      .select().single();
+    if (errP) { log(`⚠️ Proveedor "${p.nom}": ${errP.message}`, 'warn'); continue; }
+    mapaProveedores[p.id] = pNew.id;
+    log(`  ✅ Proveedor: ${p.nom}`, 'ok');
+  }
+
+  // ── 5. ARTÍCULOS ────────────────────────────────────────
+  log('\n📦 Migrando artículos...', 'info');
+  const mapaArticulos = {};
+  if ((data.arts || []).length === 0) { log('  (sin artículos)', 'info'); }
+  for (const a of (data.arts || [])) {
+    const { data: aNew, error: errA } = await db
+      .from('articulos')
+      .insert({
+        negocio_id:    negocioId,
+        proveedor_id:  mapaProveedores[a.provid] || null,
+        codigo:        a.cod  || String(a.id),
+        nombre:        a.nom,
+        unidad:        a.unidad   || null,
+        costo:         a.costo    || 0,
+        util_lista1:   a.util1    || 100,
+        util_lista2:   a.util2    || 75,
+        util_lista3:   a.util3    || 50,
+        util_mayor:    a.utilMay  || 75,
+        cant_mayor:    a.cantMay  || 1,
+        stock:         a.stock    || 0,
+        stock_minimo:  a.stockMin || 0,
+        control_stock: a.ctrlStock || 'si',
+      })
+      .select().single();
+    if (errA) { log(`⚠️ Artículo "${a.nom}": ${errA.message}`, 'warn'); continue; }
+    mapaArticulos[a.id] = aNew.id;
+    log(`  ✅ Artículo: ${a.nom}`, 'ok');
+  }
+
+  // ── 6. CLIENTES ─────────────────────────────────────────
+  log('\n👥 Migrando clientes...', 'info');
+  const mapaClientes = {};
+  if ((data.clis || []).length === 0) { log('  (sin clientes)', 'info'); }
+  for (const c of (data.clis || [])) {
+    const { data: cNew, error: errC } = await db
+      .from('clientes')
+      .insert({
+        negocio_id:   negocioId,
+        nombre:       c.nom,
+        dni:          c.dni      || null,
+        telefono:     c.tel      || null,
+        email:        c.email    || null,
+        direccion:    c.dir      || null,
+        lista_precio: c.lista    || 'lista1',
+      })
+      .select().single();
+    if (errC) { log(`⚠️ Cliente "${c.nom}": ${errC.message}`, 'warn'); continue; }
+    mapaClientes[c.id] = cNew.id;
+    log(`  ✅ Cliente: ${c.nom}`, 'ok');
+  }
+
+  // ── 7. TURNOS ───────────────────────────────────────────
+  log('\n🕐 Migrando turnos...', 'info');
+  const mapaTurnos = {};
+  if ((data.turnos || []).length === 0) { log('  (sin turnos)', 'info'); }
+  for (const t of (data.turnos || [])) {
+    const { data: tNew, error: errT } = await db
+      .from('turnos')
+      .insert({
+        negocio_id:    negocioId,
+        sucursal_id:   sucursalId,
+        fecha:         t.fecha,
+        hora_apertura: t.apertura,
+        hora_cierre:   t.cierre   || null,
+        fondo_inicial: t.fondo    || 0,
+      })
+      .select().single();
+    if (errT) { log(`⚠️ Turno ${t.id}: ${errT.message}`, 'warn'); continue; }
+    mapaTurnos[t.id] = tNew.id;
+    log(`  ✅ Turno: ${t.fecha} (${t.apertura})`, 'ok');
+  }
+
+  // ── 8. VENTAS + ITEMS ───────────────────────────────────
+  log('\n💰 Migrando ventas...', 'info');
+  if ((data.ventas || []).length === 0) { log('  (sin ventas)', 'info'); }
+  for (const v of (data.ventas || [])) {
+    const pagoCombinado = Array.isArray(v.pagos) ? v.pagos : null;
+    const { data: vNew, error: errV } = await db
+      .from('ventas')
+      .insert({
+        negocio_id:         negocioId,
+        turno_id:           mapaTurnos[v.turnoId]   || null,
+        cliente_id:         mapaClientes[v.cliid]   || null,
+        cliente_nombre:     v.clinom || 'Consumidor Final',
+        fecha:              v.fecha,
+        hora:               v.hora   || null,
+        lista_precio:       v.lista  || 'lista1',
+        lista_precio_nombre: v.listaNom || null,
+        subtotal:           v.sub    || 0,
+        descuento_pct:      v.desc   || 0,
+        total:              v.total  || 0,
+        metodo_pago:        v.pago   || 'Efectivo',
+        pagos_combinados:   pagoCombinado,
+        interes_credito:    v.interes || 0,
+      })
+      .select().single();
+    if (errV) { log(`⚠️ Venta ${v.id}: ${errV.message}`, 'warn'); continue; }
+
+    // Items de la venta
+    const items = (v.items || []).map(it => ({
+      venta_id:        vNew.id,
+      articulo_id:     mapaArticulos[it.aid] || null,
+      articulo_nombre: it.nom,
+      cantidad:        it.cant,
+      precio_unitario: it.precio,
+      subtotal:        it.cant * it.precio,
+      es_mayor:        it.esMayor || false,
+      es_manual:       it.manual  || false,
+    }));
+
+    if (items.length > 0) {
+      const { error: errIt } = await db.from('venta_items').insert(items);
+      if (errIt) log(`  ⚠️ Items venta ${v.id}: ${errIt.message}`, 'warn');
+    }
+
+    log(`  ✅ Venta ${v.id}: $${v.total} (${v.pago})`, 'ok');
+  }
+
+  // ── 9. GASTOS ───────────────────────────────────────────
+  log('\n💸 Migrando gastos...', 'info');
+  if ((data.gastos || []).length === 0) { log('  (sin gastos)', 'info'); }
+  for (const g of (data.gastos || [])) {
+    const { error: errG } = await db.from('gastos').insert({
+      negocio_id:   negocioId,
+      turno_id:     mapaTurnos[g.turnoId]  || null,
+      proveedor_id: mapaProveedores[g.provid] || null,
+      fecha:        g.fecha,
+      categoria:    g.cat        || 'General',
+      descripcion:  g.desc       || null,
+      metodo_pago:  g.pago       || 'efectivo',
+      monto:        g.monto      || 0,
+      impacta_caja: g.impactaCaja ?? true,
+    });
+    if (errG) { log(`⚠️ Gasto ${g.id}: ${errG.message}`, 'warn'); continue; }
+    log(`  ✅ Gasto: $${g.monto}`, 'ok');
+  }
+
+  // ── FIN ─────────────────────────────────────────────────
+  log('\n──────────────────────────────', 'info');
+  log('✅ MIGRACIÓN COMPLETADA', 'ok');
+  log(`   Negocio ID: ${negocioId}`, 'ok');
+  log('   Guardá ese ID, lo vas a necesitar para conectar la aplicación.', 'warn');
+  log('──────────────────────────────', 'info');
+
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
