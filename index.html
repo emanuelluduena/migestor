@@ -3330,22 +3330,19 @@ saveDB();
 if(!DB.config) DB.config={};
 // ═══════════════════════ ARRANQUE CON SUPABASE ═══════════════════════
 async function arrancarSistema() {
-  // Mostrar pantalla de carga
   document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-loading') && (document.getElementById('app-loading').style.display = 'flex');
 
   const sesGuardada = localStorage.getItem('sesionActiva');
   if (sesGuardada) {
     try {
       const s = JSON.parse(sesGuardada);
       if (s._negocioId) {
-        // Hay sesión guardada, cargar datos
         try {
           toast('Cargando datos...', 'i');
-          toast('Cargando artículos...', 'i');
           DB = await cargarDesdeSupabase(s._negocioId);
           _sesion = DB.usrs.find(u => u.usr === s.usr) || s;
           _sesion._negocioId = s._negocioId;
+          document.getElementById('login-screen').style.display = 'none';
           document.getElementById('usr-badge-nom').textContent = _sesion.nom;
           aplicarPermisosMenues();
           aplicarConfig();
