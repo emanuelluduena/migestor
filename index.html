@@ -127,6 +127,11 @@ tbody td{padding:9px 13px;vertical-align:middle;}
 </style>
 </head>
 <body>
+  <div id="splash-screen" style="position:fixed;inset:0;background:linear-gradient(135deg,#1a4a2e 0%,#2d7a4f 100%);z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+  <div style="font-size:64px;">🌿</div>
+  <div style="font-family:'Fraunces',serif;font-size:24px;color:white;font-weight:700;">Almacén Natural</div>
+  <div style="color:rgba(255,255,255,0.7);font-size:14px;">Cargando...</div>
+</div>
 <div id="login-screen" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#1a4a2e 0%,#2d7a4f 100%);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:0;">
   <div style="background:white;border-radius:16px;padding:40px 36px;width:90%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;">
     <div style="font-size:48px;margin-bottom:8px;">🌿</div>
@@ -1236,6 +1241,7 @@ function doLogin() {
   _sesion = u;
   localStorage.setItem('sesionActiva', JSON.stringify(u));
   document.getElementById('login-screen').style.display = 'none';
+  document.body.style.visibility = 'hidden';
   document.getElementById('usr-badge-nom').textContent = u.nom;
   aplicarPermisosMenues();
   irA('inicio');
@@ -1248,13 +1254,13 @@ function doLogout() {
 }
 
 function mostrarLogin() {
+  document.getElementById('splash-screen').style.display = 'none';
   const ls = document.getElementById('login-screen');
   ls.style.display = 'flex';
   document.getElementById('login-usr').value = '';
   document.getElementById('login-pass').value = '';
   document.getElementById('login-err').style.display = 'none';
   setTimeout(()=>document.getElementById('login-usr').focus(), 100);
-  // Actualizar nombre tienda
   if (DB.config && DB.config.nom) document.getElementById('login-nombre-tienda').textContent = DB.config.nom;
 }
 
@@ -3338,7 +3344,6 @@ async function arrancarSistema() {
       const s = JSON.parse(sesGuardada);
       if (s._negocioId) {
         try {
-          toast('Cargando datos...', 'i');
           DB = await cargarDesdeSupabase(s._negocioId);
           _sesion = DB.usrs.find(u => u.usr === s.usr) || s;
           _sesion._negocioId = s._negocioId;
@@ -3347,6 +3352,7 @@ async function arrancarSistema() {
           aplicarPermisosMenues();
           aplicarConfig();
           renderInicio();
+          document.getElementById('splash-screen').style.display = 'none';
           toast('✅ ' + _sesion.nom + ' — Datos cargados', 'v');
           return;
         } catch(e) {
