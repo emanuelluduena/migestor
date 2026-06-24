@@ -3376,11 +3376,21 @@ doLogin = async function() {
   if (loginBtn) { loginBtn.disabled = true; loginBtn.textContent = 'Conectando...'; }
 
   try {
-    // Buscar usuario en Supabase (en cualquier negocio)
-    // Buscar usuario - ordenar por created_at desc para tomar el más reciente (el del local real)
-    let usrsSB = await sbGet('usuarios', `username=eq.${encodeURIComponent(usr)}&password_hash=eq.${encodeURIComponent(pass)}&activo=eq.true&order=created_at.desc`);
-    if (!usrsSB.length) {
-      usrsSB = await sbGet('usuarios', `username=eq.${encodeURIComponent(usr)}&password_hash=eq.${encodeURIComponent(pass)}&order=created_at.desc`);
+    // Detectar el negocio según el dominio actual
+    const dominioActual = window.location.hostname + window.location.pathname.split('/').slice(0,2).join('/');
+    const negociosSB = await sbGet('negocios', `dominio=eq.${encodeURIComponent(dominioActual)}&activo=eq.true`);
+    
+    let negocioId = null;
+    if (negociosSB.length) {
+      negocioId = negociosSB[0].id;
+    }
+
+    // Buscar usuario filtrando por negocio
+    let usrsSB = [];
+    if (negocioId) {
+      usrsSB = await sbGet('usuarios', `username=eq.${encodeURIComponent(usr)}&password_hash=eq.${encodeURIComponent(pass)}&negocio_id=eq.${negocioId}&activo=eq.true&order=created_at.desc`);
+    } else {
+      usrsSB = await sbGet('usuarios', `username=eq.${encodeURIComponent(usr)}&password_hash=eq.${encodeURIComponent(pass)}&activo=eq.true&order=created_at.desc`);
     }
     
     if (!usrsSB.length) {
@@ -3392,7 +3402,7 @@ doLogin = async function() {
     }
 
     const usrSB = usrsSB[0];
-    const negocioId = usrSB.negocio_id;
+    negocioId = usrSB.negocio_id;
 
     // Cargar todos los datos del negocio
     toast('Cargando datos del negocio...', 'i');
