@@ -124,6 +124,33 @@ tbody td{padding:9px 13px;vertical-align:middle;}
 .toast .tico{font-size:17px;}
 .toast .tmsg{flex:1;}
 @keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+#calc-win{position:fixed;bottom:80px;right:24px;z-index:5000;width:280px;background:white;border-radius:var(--radio);box-shadow:0 8px 40px rgba(0,0,0,0.22);display:none;flex-direction:column;user-select:none;}
+#calc-win.open{display:flex;}
+#calc-header{background:linear-gradient(135deg,var(--verde) 0%,var(--verde-claro) 100%);color:white;padding:10px 14px;border-radius:var(--radio) var(--radio) 0 0;display:flex;align-items:center;justify-content:space-between;cursor:grab;font-family:'Fraunces',serif;font-size:15px;font-weight:700;}
+#calc-header:active{cursor:grabbing;}
+#calc-modos{display:flex;gap:6px;padding:10px 12px 6px;}
+.calc-modo-btn{flex:1;padding:5px 0;border-radius:6px;border:1.5px solid #e5e7eb;background:var(--gris-claro);color:var(--gris);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.15s;}
+.calc-modo-btn.act{background:var(--verde);color:white;border-color:var(--verde);}
+#calc-display{margin:0 12px 8px;background:var(--crema);border:1.5px solid #e5e7eb;border-radius:var(--radio-sm);padding:10px 12px;text-align:right;}
+#calc-hist{max-height:80px;overflow-y:auto;padding:6px 12px 0;display:flex;flex-direction:column-reverse;gap:2px;}
+#calc-hist-item{font-size:11px;color:var(--gris);text-align:right;padding:2px 0;border-bottom:1px solid #f0f0f0;line-height:1.4;}
+#calc-hist-item .hi-res{font-weight:600;color:var(--verde-claro);}
+#calc-expr{font-size:11px;color:var(--gris);min-height:16px;word-break:break-all;}
+#calc-val{font-family:'Fraunces',serif;font-size:26px;font-weight:700;color:var(--verde);word-break:break-all;}
+#calc-keys{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:0 12px 12px;}
+.ck{padding:11px 0;border-radius:7px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;transition:all 0.12s;background:var(--gris-claro);color:var(--texto);}
+.ck:hover{filter:brightness(0.93);}
+.ck:active{transform:scale(0.94);}
+.ck.op{background:#e8f5ee;color:var(--verde);}
+.ck.ac{background:#fde8e8;color:var(--rojo);}
+.ck.eq{background:var(--verde);color:white;grid-column:span 2;}
+.ck.zero{grid-column:span 2;}
+.ck.pct{background:#fff8f0;color:var(--tierra);}
+#calc-win.minimizado #calc-modos,
+#calc-win.minimizado #calc-display,
+#calc-win.minimizado #calc-keys,
+#calc-win.minimizado #calc-hist{display:none !important;}
+#calc-win.minimizado{width:180px;}
 </style>
 </head>
 <body>
@@ -155,7 +182,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
     <span style="font-size:26px">🌿</span>
     <div><div class="nombre">Almacén Natural</div><div class="sub">Sistema de Gestión</div></div>
   </div>
-  <div class="hinfo"><span>📅 <span id="fhdr"></span></span><span>🇦🇷 Monotributista</span><span id="usr-badge" style="background:rgba(255,255,255,0.2);border-radius:20px;padding:3px 10px;font-size:12px;cursor:pointer;" onclick="doLogout()" title="Cerrar sesión">👤 <span id="usr-badge-nom"></span> · Salir</span></div>
+  <div class="hinfo"><button class="btn" id="btn-calc" onclick="toggleCalc()" style="background:rgba(255,255,255,0.18);color:white;border:1.5px solid rgba(255,255,255,0.35);padding:6px 13px;font-size:13px;" title="Calculadora">🧮 Calc</button><span>📅 <span id="fhdr"></span></span><span>🇦🇷 Monotributista</span><span id="usr-badge" style="background:rgba(255,255,255,0.2);border-radius:20px;padding:3px 10px;font-size:12px;cursor:pointer;" onclick="doLogout()" title="Cerrar sesión">👤 <span id="usr-badge-nom"></span> · Salir</span></div>
 </header>
 <nav id="nav">
   <button class="tab activo" onclick="irA('inicio')" data-tab="inicio"><span class="ti">🏠</span>Inicio</button>
@@ -3555,6 +3582,325 @@ arrancarSistema();
     </div>
   </div>
 </div>
+
+<div id="calc-win">
+  <div id="calc-header" onmousedown="calcDragStart(event)">
+    🧮 Calculadora
+    <div style="display:flex;gap:4px;">
+      <button onclick="calcMinimizar()" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:5px;cursor:pointer;font-size:15px;padding:2px 7px;line-height:1;" title="Minimizar">−</button>
+      <button onclick="toggleCalc()" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:5px;cursor:pointer;font-size:15px;padding:2px 7px;line-height:1;" title="Cerrar">✕</button>
+    </div>
+  </div>
+  <div id="calc-modos" style="display:none"></div>
+  <div id="calc-hist"></div>
+  <div id="calc-display">
+    <div id="calc-expr"></div>
+    <div id="calc-val">0</div>
+  </div>
+  <div id="calc-keys"></div>
+</div>
+
+<script>
+// ── CALCULADORA FLOTANTE ──────────────────────────────────────────────
+(function(){
+  const STORAGE_KEY = 'calc_modo';
+  const HIST_KEY = 'calc_hist';
+  const HIST_MAX = 20;
+  let modo = 'basica';
+  let historial = JSON.parse(localStorage.getItem(HIST_KEY) || '[]');
+
+  function renderHist(){
+    const cont = document.getElementById('calc-hist');
+    if(!cont) return;
+    if(historial.length === 0){ cont.innerHTML = ''; return; }
+    cont.innerHTML = historial.slice().reverse().map(h =>
+      `<div class="calc-hist-item">${h.expr} <span class="hi-res">= ${h.res}</span></div>`
+    ).join('');
+  }
+
+  function agregarHist(exprStr, resStr){
+    historial.push({expr: exprStr, res: resStr});
+    if(historial.length > HIST_MAX) historial.shift();
+    localStorage.setItem(HIST_KEY, JSON.stringify(historial));
+    renderHist();
+  }
+  let expr = '', val = '0', esperaOperando = false;
+
+  // Layouts de teclas por modo
+  const layouts = {
+    basica: [
+      {l:'C',  cls:'ck ac',  fn:"calcAC()"},
+      {l:'±',  cls:'ck op',  fn:"calcPlusMinus()"},
+      {l:'⌫',  cls:'ck op',  fn:"calcBorrar()"},
+      {l:'÷',  cls:'ck op',  fn:"calcOp('/')"},
+      {l:'7',  cls:'ck',     fn:"calcNum('7')"},
+      {l:'8',  cls:'ck',     fn:"calcNum('8')"},
+      {l:'9',  cls:'ck',     fn:"calcNum('9')"},
+      {l:'×',  cls:'ck op',  fn:"calcOp('*')"},
+      {l:'4',  cls:'ck',     fn:"calcNum('4')"},
+      {l:'5',  cls:'ck',     fn:"calcNum('5')"},
+      {l:'6',  cls:'ck',     fn:"calcNum('6')"},
+      {l:'−',  cls:'ck op',  fn:"calcOp('-')"},
+      {l:'1',  cls:'ck',     fn:"calcNum('1')"},
+      {l:'2',  cls:'ck',     fn:"calcNum('2')"},
+      {l:'3',  cls:'ck',     fn:"calcNum('3')"},
+      {l:'+',  cls:'ck op',  fn:"calcOp('+')"},
+      {l:'0',  cls:'ck zero',fn:"calcNum('0')"},
+      {l:'.',  cls:'ck',     fn:"calcPunto()"},
+      {l:'=',  cls:'ck eq',  fn:"calcIgual()"},
+    ],
+    pct: [
+      {l:'C',    cls:'ck ac',  fn:"calcAC()"},
+      {l:'±',    cls:'ck op',  fn:"calcPlusMinus()"},
+      {l:'⌫',    cls:'ck op',  fn:"calcBorrar()"},
+      {l:'÷',    cls:'ck op',  fn:"calcOp('/')"},
+      {l:'7',    cls:'ck',     fn:"calcNum('7')"},
+      {l:'8',    cls:'ck',     fn:"calcNum('8')"},
+      {l:'9',    cls:'ck',     fn:"calcNum('9')"},
+      {l:'×',    cls:'ck op',  fn:"calcOp('*')"},
+      {l:'4',    cls:'ck',     fn:"calcNum('4')"},
+      {l:'5',    cls:'ck',     fn:"calcNum('5')"},
+      {l:'6',    cls:'ck',     fn:"calcNum('6')"},
+      {l:'−',    cls:'ck op',  fn:"calcOp('-')"},
+      {l:'1',    cls:'ck',     fn:"calcNum('1')"},
+      {l:'2',    cls:'ck',     fn:"calcNum('2')"},
+      {l:'3',    cls:'ck',     fn:"calcNum('3')"},
+      {l:'+',    cls:'ck op',  fn:"calcOp('+')"},
+      {l:'0',    cls:'ck zero',fn:"calcNum('0')"},
+      {l:'.',    cls:'ck',     fn:"calcPunto()"},
+      {l:'%',    cls:'ck pct', fn:"calcPct()"},
+      {l:'=',    cls:'ck eq',  fn:"calcIgual()"},
+      {l:'+21%', cls:'ck pct', fn:"calcIVA(21)"},
+      {l:'+10%', cls:'ck pct', fn:"calcIVA(10)"},
+      {l:'+27%', cls:'ck pct', fn:"calcIVA(27)"},
+      {l:'−%',   cls:'ck pct', fn:"calcQuitarPct()"},
+    ]
+  };
+
+  function renderKeys(){
+    const cont = document.getElementById('calc-keys');
+    if(!cont) return;
+    // Ajustar grid según modo
+    cont.style.gridTemplateColumns = 'repeat(4,1fr)';
+    cont.innerHTML = layouts[modo].map(k =>
+      `<button class="${k.cls}" onclick="${k.fn}">${k.l}</button>`
+    ).join('');
+  }
+
+  function actualizarDisplay(){
+    const ve = document.getElementById('calc-expr');
+    const vv = document.getElementById('calc-val');
+    if(ve) ve.textContent = expr;
+    if(vv) vv.textContent = val;
+  }
+
+  function calcSetModo(m){
+    modo = m;
+    localStorage.setItem(STORAGE_KEY, m);
+    document.querySelectorAll('.calc-modo-btn').forEach(b => b.classList.remove('act'));
+    const btn = document.getElementById('cmb-' + (m === 'basica' ? 'basica' : 'pct'));
+    if(btn) btn.classList.add('act');
+    calcAC();
+    renderKeys();
+  }
+
+  function toggleCalc(){
+    const win = document.getElementById('calc-win');
+    if(!win) return;
+    win.classList.toggle('open');
+    if(win.classList.contains('open')){
+      // Aplicar modo guardado
+      document.querySelectorAll('.calc-modo-btn').forEach(b => b.classList.remove('act'));
+      const btn = document.getElementById('cmb-' + (modo === 'basica' ? 'basica' : 'pct'));
+      if(btn) btn.classList.add('act');
+      renderKeys();
+      renderHist();
+      actualizarDisplay();  }
+  }
+
+  // Operaciones
+  let pendOp = null, pendVal = null;
+
+  function calcAC(){
+    expr = ''; val = '0'; pendOp = null; pendVal = null; esperaOperando = false;
+    actualizarDisplay();
+  }
+
+  function calcNum(n){
+    if(esperaOperando){ val = n; esperaOperando = false; }
+    else { val = val === '0' ? n : val + n; }
+    actualizarDisplay();
+  }
+
+  function calcPunto(){
+    if(esperaOperando){ val = '0.'; esperaOperando = false; actualizarDisplay(); return; }
+    if(!val.includes('.')) val += '.';
+    actualizarDisplay();
+  }
+
+  function calcPlusMinus(){
+    if(val !== '0') val = val.startsWith('-') ? val.slice(1) : '-' + val;
+    actualizarDisplay();
+  }
+
+  function calcBorrar(){
+    if(val.length > 1) val = val.slice(0,-1);
+    else val = '0';
+    actualizarDisplay();
+  }
+
+  function calcOp(op){
+    const n = parseFloat(val);
+    if(pendOp && !esperaOperando){
+      const res = calcEval(pendVal, n, pendOp);
+      val = formatCalcNum(res);
+      expr = val + ' ' + opSym(op);
+    } else {
+      expr = val + ' ' + opSym(op);
+    }
+    pendVal = parseFloat(val);
+    pendOp = op;
+    esperaOperando = true;
+    actualizarDisplay();
+  }
+
+  function calcIgual(){
+    if(pendOp === null){ expr = ''; actualizarDisplay(); return; }
+    const n = parseFloat(val);
+    const res = calcEval(pendVal, n, pendOp);
+    const exprStr = pendVal + ' ' + opSym(pendOp) + ' ' + n;
+    val = formatCalcNum(res);
+    expr = exprStr + ' =';
+    agregarHist(exprStr, val);
+    pendOp = null; pendVal = null; esperaOperando = true;
+    actualizarDisplay();
+  }
+
+  function calcPct(){
+    // x% del número pendiente, o simplemente /100
+    const n = parseFloat(val);
+    if(pendVal !== null){ val = formatCalcNum(pendVal * n / 100); }
+    else { val = formatCalcNum(n / 100); }
+    esperaOperando = true;
+    actualizarDisplay();
+  }
+
+  function calcIVA(pct){
+    const n = parseFloat(val);
+    const res = n * (1 + pct/100);
+    expr = val + ' + ' + pct + '% IVA =';
+    val = formatCalcNum(res);
+    esperaOperando = true;
+    actualizarDisplay();
+  }
+
+  function calcQuitarPct(){
+    // Quita el último porcentaje aplicado (divide por 1+pct no disponible genérico)
+    // Acá quitamos 21% como default útil en comercio, pero lo mostramos claro
+    const n = parseFloat(val);
+    const res = n / 1.21;
+    expr = val + ' − 21% IVA =';
+    val = formatCalcNum(res);
+    esperaOperando = true;
+    actualizarDisplay();
+  }
+
+  function calcEval(a, b, op){
+    if(op === '+') return a + b;
+    if(op === '-') return a - b;
+    if(op === '*') return a * b;
+    if(op === '/') return b !== 0 ? a / b : 0;
+    return b;
+  }
+
+  function opSym(op){
+    return {'+':'+','-':'−','*':'×','/':'÷'}[op] || op;
+  }
+
+  function formatCalcNum(n){
+    if(isNaN(n)) return '0';
+    // Máximo 8 decimales, sin ceros innecesarios
+    return parseFloat(n.toFixed(8)).toString();
+  }
+
+  // Drag
+  let dragOffX=0, dragOffY=0, dragging=false;
+  function calcDragStart(e){
+    const win = document.getElementById('calc-win');
+    dragging = true;
+    dragOffX = e.clientX - win.getBoundingClientRect().left;
+    dragOffY = e.clientY - win.getBoundingClientRect().top;
+    document.addEventListener('mousemove', calcDragMove);
+    document.addEventListener('mouseup', calcDragEnd);
+  }
+  function calcDragMove(e){
+    if(!dragging) return;
+    const win = document.getElementById('calc-win');
+    win.style.left = (e.clientX - dragOffX) + 'px';
+    win.style.top  = (e.clientY - dragOffY) + 'px';
+    win.style.bottom = 'auto'; win.style.right = 'auto';
+  }
+  function calcDragEnd(){
+    dragging = false;
+    document.removeEventListener('mousemove', calcDragMove);
+    document.removeEventListener('mouseup', calcDragEnd);
+  }
+
+  // Minimizar
+  function calcMinimizar(){
+    const win = document.getElementById('calc-win');
+    win.classList.toggle('minimizado');
+    const btn = win.querySelector('button[title="Minimizar"]');
+    if(btn) btn.textContent = win.classList.contains('minimizado') ? '▢' : '−';
+  }
+
+  // Teclado numérico
+  document.addEventListener('keydown', function(e){
+    const win = document.getElementById('calc-win');
+    if(!win || !win.classList.contains('open') || win.classList.contains('minimizado')) return;
+    // Evitar interferir con inputs del sistema
+    const tag = document.activeElement.tagName;
+    if(tag === 'INPUT' || tag === 'TEXTAREA') return;
+    switch(e.key){
+      case '0': case 'Insert':    calcNum('0'); break;
+      case '1': case 'End':       calcNum('1'); break;
+      case '2': case 'ArrowDown': calcNum('2'); break;
+      case '3': case 'PageDown':  calcNum('3'); break;
+      case '4': case 'ArrowLeft': calcNum('4'); break;
+      case '5': case 'Clear':     calcNum('5'); break;
+      case '6': case 'ArrowRight':calcNum('6'); break;
+      case '7': case 'Home':      calcNum('7'); break;
+      case '8': case 'ArrowUp':   calcNum('8'); break;
+      case '9': case 'PageUp':    calcNum('9'); break;
+      case '.': case ',':         calcPunto();  break;
+      case '+':                   calcOp('+');  break;
+      case '-':                   calcOp('-');  break;
+      case '*':                   calcOp('*');  break;
+      case '/': e.preventDefault();calcOp('/'); break;
+      case 'Enter': case '=':     calcIgual();  break;
+      case 'Backspace':           calcBorrar(); break;
+      case 'Escape':              calcAC();     break;
+      case '%':                   calcPct();    break;
+    }
+  });
+
+  // Exponer funciones globales
+  window.toggleCalc     = toggleCalc;
+  window.calcMinimizar  = calcMinimizar;
+  window.calcAC         = calcAC;
+  window.calcNum        = calcNum;
+  window.calcPunto      = calcPunto;
+  window.calcPlusMinus  = calcPlusMinus;
+  window.calcBorrar     = calcBorrar;
+  window.calcOp         = calcOp;
+  window.calcIgual      = calcIgual;
+  window.calcPct        = calcPct;
+  window.calcIVA        = calcIVA;
+  window.calcQuitarPct  = calcQuitarPct;
+  window.calcDragStart  = calcDragStart;
+})();
+</script>
+
 
 <div id="toast-container"></div>
 </body>
