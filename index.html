@@ -1395,9 +1395,10 @@ function pgIr(mod, n) { _pags[mod] = n; if(_pgRender[mod]) _pgRender[mod](); }
 
 // ═══════════════════════ UTILS ═══════════════════════
 // Formateadores creados UNA SOLA VEZ y reutilizados (47x más rápido que toLocaleString por llamada)
-const _nf = new Intl.NumberFormat('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
+const _nf = new Intl.NumberFormat('es-AR', {minimumFractionDigits:0, maximumFractionDigits:0});
+const _rd500 = n => { const v = parseFloat(n)||0; return v === 0 ? 0 : Math.ceil(v/500)*500; };
 const _df = new Intl.DateTimeFormat('es-AR');
-const fmt = n => '$' + _nf.format(parseFloat(n)||0);
+const fmt = n => '$' + _nf.format(_rd500(n));
 const hoy = () => new Date().toISOString().split('T')[0];
 const hora = () => new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
 const fleg = f => { if(!f) return '-'; const p=f.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
@@ -3109,7 +3110,7 @@ function renderPreciosFiltro() {
       '<td><span class="bdg bv2">'+a.cod+'</span></td>' +
       '<td><strong>'+a.nom+'</strong></td>' +
       '<td>'+(a.cat||'-')+'</td>' +
-      '<td>'+fmt(a.cos)+'</td>' +
+      '<td><input type=\"number\" class=\"prec-input\" data-id=\"'+a.id+'\" data-campo=\"cos\" value=\"'+a.cos+'\" style=\"width:70px;border:1px solid #ddd;border-radius:4px;padding:3px;text-align:center\" onchange=\"actualizarPrecioArt(this)\"></td>' +
       '<td><input type="number" class="prec-input" data-id="'+a.id+'" data-campo="u1" value="'+a.u1+'" style="width:55px;border:1px solid #ddd;border-radius:4px;padding:3px;text-align:center" onchange="actualizarPrecioArt(this)"></td>' +
       '<td class="tv">'+fmt(pxc(a.cos,a.u1))+'</td>' +
       '<td><input type="number" class="prec-input" data-id="'+a.id+'" data-campo="u2" value="'+a.u2+'" style="width:55px;border:1px solid #ddd;border-radius:4px;padding:3px;text-align:center" onchange="actualizarPrecioArt(this)"></td>' +
