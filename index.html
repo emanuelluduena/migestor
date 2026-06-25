@@ -2207,7 +2207,7 @@ function renderCaja(){
   if(ta){
     document.getElementById('caja-turno-badge').textContent='🔓 Turno abierto desde '+ta.apertura+' · '+ta.fecha;
     const movTurno=DB.caja.filter(function(m){return m.turnoId===ta.id;});
-    const venTurno=DB.ventas.filter(function(v){return v.turnoId===ta.id;});
+    const venTurno=DB.ventas.filter(function(v){return v.turnoId===ta.id||(!v.turnoId&&v.fecha===ta.fecha);});
     const venTotal=venTurno.reduce(function(s,v){return s+v.total;},0);
     const venEfectivo=venTurno.filter(function(v){return v.pago==='Efectivo';}).reduce(function(s,v){return s+v.total;},0);
     const ingEx=movTurno.filter(function(m){return m.tipo==='entrada';}).reduce(function(s,m){return s+m.monto;},0);
@@ -2294,8 +2294,8 @@ function cerrarTurno(){
   const ta=turnoActivo();
   if(!ta){toast('No hay turno abierto','a');return;}
   // Calcular datos para el arqueo
-  const venTurno=DB.ventas.filter(function(v){return v.turnoId===ta.id;});
-  const movTurno=DB.caja.filter(function(m){return m.turnoId===ta.id;});
+  const venTurno=DB.ventas.filter(function(v){return v.turnoId===ta.id||(!v.turnoId&&v.fecha===ta.fecha);});
+  const movTurno=DB.caja.filter(function(m){return m.turnoId===ta.id||(!m.turnoId&&m.fecha===ta.fecha);});
   const pagos=['Efectivo','Transferencia','Débito','Crédito','Cuenta Corriente'];
   const ingEx=movTurno.filter(function(m){return m.tipo==='entrada';}).reduce(function(s,m){return s+m.monto;},0);
   const salEx=movTurno.filter(function(m){return m.tipo==='salida';}).reduce(function(s,m){return s+m.monto;},0);
