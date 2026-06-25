@@ -2230,7 +2230,7 @@ document.getElementById('cajres').innerHTML=
   tarjetasPago;
     const tb=document.getElementById('tcajmov');
     const todos=[
-      ...venTurno.map(function(v){return{hora:v.hora,tipo:'venta',desc:'Venta #'+v.id+' - '+v.clinom,monto:v.total};}),
+      ...venTurno.map(function(v){return{hora:v.hora,tipo:'venta',desc:'Venta - '+v.clinom+' ('+fleg(v.fecha)+' '+v.hora+')',monto:v.total};}),
       ...movTurno
     ].sort(function(a,b){return (a.hora||'').localeCompare(b.hora||'');});
     if(!todos.length){tb.innerHTML='<tr><td colspan="4"><div class="vacio"><div class="vi">🏦</div><p>Sin movimientos</p></div></td></tr>';}
