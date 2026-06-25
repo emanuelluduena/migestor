@@ -1041,10 +1041,10 @@ async function cargarDesdeSupabase(negId) {
     const p2 = a.precio_lista2 || 0;
     const p3 = a.precio_lista3 || 0;
     const pm = a.precio_mayor || 0;
-    const u1 = cos > 0 ? Math.round((p1/cos - 1)*100) : 0;
-    const u2 = cos > 0 ? Math.round((p2/cos - 1)*100) : 0;
-    const u3 = cos > 0 ? Math.round((p3/cos - 1)*100) : 0;
-    const um = cos > 0 ? Math.round((pm/cos - 1)*100) : 0;
+    const u1 = (a.util_lista1 != null) ? a.util_lista1 : (cos > 0 ? Math.round((p1/cos - 1)*100) : 0);
+    const u2 = (a.util_lista2 != null) ? a.util_lista2 : (cos > 0 ? Math.round((p2/cos - 1)*100) : 0);
+    const u3 = (a.util_lista3 != null) ? a.util_lista3 : (cos > 0 ? Math.round((p3/cos - 1)*100) : 0);
+    const um = (a.util_mayor  != null) ? a.util_mayor  : (cos > 0 ? Math.round((pm/cos - 1)*100) : 0);
     return {
       id: num, _uuid: a.id,
       cod: a.codigo || String(num),
@@ -1138,6 +1138,8 @@ async function _syncSupabase(tipo, data) {
         nombre: data.nom, categoria: data.cat, unidad: data.uni,
         stock_actual: data.stk, stock_minimo: data.stkmin,
         usa_stock: data.usastk === 'si', costo: data.cos,
+        util_lista1: data.u1, util_lista2: data.u2,
+        util_lista3: data.u3, util_mayor: data.um,
         precio_lista1: data.p1, precio_lista2: data.p2,
         precio_lista3: data.p3, precio_mayor: data.pm
       });
@@ -1396,7 +1398,7 @@ function pgIr(mod, n) { _pags[mod] = n; if(_pgRender[mod]) _pgRender[mod](); }
 // ═══════════════════════ UTILS ═══════════════════════
 // Formateadores creados UNA SOLA VEZ y reutilizados (47x más rápido que toLocaleString por llamada)
 const _nf = new Intl.NumberFormat('es-AR', {minimumFractionDigits:0, maximumFractionDigits:0});
-const _rd500 = n => { const v = parseFloat(n)||0; return v === 0 ? 0 : Math.ceil(v/500)*500; };
+const _rd500 = n => { const v = parseFloat(n)||0; return v === 0 ? 0 : Math.ceil(v/100)*100; };
 const _df = new Intl.DateTimeFormat('es-AR');
 const fmt = n => '$' + _nf.format(_rd500(n));
 const hoy = () => new Date().toISOString().split('T')[0];
@@ -3131,9 +3133,25 @@ function actualizarPrecioArt(input) {
   var campo = input.getAttribute('data-campo');
   var val = parseFloat(input.value) || 0;
   var art = DB.arts.find(function(a){return a.id===id;});
-  if(art){ art[campo]=val; saveDB(); }
-  // Actualizar precio calculado en la fila
-  renderPreciosFiltro();
+  if(!art) return;
+  art[campo] = val;
+  // Recalcular precios finales para mantener consistencia con Supabase
+  art.p1 = pxc(art.cos, art.u1);
+  art.p2 = pxc(art.cos, art.u2);
+  art.p3 = pxc(art.cos, art.u3);
+  art.pm = pxc(art.cos, art.um);
+  saveDB('art_update', art);
+  // Actualizar solo las celdas de precio calculado de esta fila, sin re-renderizar
+  var fila = input.closest('tr');
+  if(!fila) return;
+  var precios = fila.querySelectorAll('td.tv, td.tt2');
+  var campos = [
+    {td: precios[0], u: art.u1},
+    {td: precios[1], u: art.u2},
+    {td: precios[2], u: art.u3},
+    {td: precios[3], u: art.um}
+  ];
+  campos.forEach(function(c){ if(c.td) c.td.textContent = fmt(pxc(art.cos, c.u)); });
 }
 
 function actualizarContadorPrecios() {
@@ -3160,6 +3178,7 @@ function aplicarCambio(arts) {
     });
   });
   saveDB();
+  arts.forEach(function(a){ _syncSupabase('art_update', a); });
   renderPreciosFiltro();
   toast('Precios actualizados en '+arts.length+' artículos','v');
 }
@@ -3173,10 +3192,27 @@ function aplicarCambioMasivo() {
 function aplicarCambioSeleccionados() {
   var ids = [...document.querySelectorAll('.prec-chk:checked')].map(function(c){return parseInt(c.value);});
   if(!ids.length){toast('Seleccioná al menos un artículo','a');return;}
-  var arts = DB.arts.filter(function(a){return ids.includes(a.id);});
-  aplicarCambio(arts);
+  ids.forEach(function(id){
+    var art = DB.arts.find(function(a){return a.id===id;});
+    if(!art) return;
+    var fila = document.querySelector('.prec-chk[value="'+id+'"]').closest('tr');
+    if(!fila) return;
+    fila.querySelectorAll('.prec-input').forEach(function(inp){
+      var campo = inp.getAttribute('data-campo');
+      var val = parseFloat(inp.value) || 0;
+      art[campo] = val;
+    });
+    // Recalcular precios finales para mantener consistencia con Supabase
+    art.p1 = pxc(art.cos, art.u1);
+    art.p2 = pxc(art.cos, art.u2);
+    art.p3 = pxc(art.cos, art.u3);
+    art.pm = pxc(art.cos, art.um);
+    _syncSupabase('art_update', art);
+  });
+  saveDB();
+  renderPreciosFiltro();
+  toast('Precios actualizados en '+ids.length+' artículos','v');
 }
-
 function importarCSVPrecios() {
   var file = document.getElementById('csv-file2').files[0];
   if(!file){toast('Selecciona un archivo','a');return;}
