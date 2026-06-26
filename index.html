@@ -939,8 +939,28 @@ tbody td{padding:9px 13px;vertical-align:middle;}
 <div class="moverlay" id="m-vventa"><div class="modal">
   <h2>🧾 Detalle de Venta</h2>
   <div id="dventa"></div>
-  <div class="mfoot"><button class="btn bg" onclick="cerrar('m-vventa')">Cerrar</button><button class="btn bv" onclick="imprimirTicket()">🖨️ Imprimir</button></div>
+  <div class="mfoot"><button class="btn bg" onclick="cerrar('m-vventa')">Cerrar</button><button class="btn bv" onclick="imprimirTicket()">🖨️ Imprimir</button>
+          <button id="vventa-btn-editar" class="btn bt" style="display:none" onclick="cerrar('m-vventa');abrirEditarVenta(ventaActual.id)">✏️ Editar venta</button></div>
 </div></div>
+  
+<!-- MODAL EDITAR VENTA -->
+<div class="moverlay" id="m-editar-venta">
+  <div class="modal" style="max-width:680px">
+    <h2>✏️ Editar Venta <span id="ev-titulo" style="font-size:14px;color:var(--gris);font-weight:400"></span></h2>
+    <div id="ev-items-wrap"></div>
+    <div style="background:var(--crema);border-radius:8px;padding:11px;margin-top:12px;text-align:right;font-size:13px">
+      <span>Subtotal: <strong id="ev-sub">$0</strong></span>
+      &nbsp;&nbsp;
+      <span id="ev-desc-row" style="display:none">Descuento: <strong id="ev-desc-pct"></strong>%&nbsp;&nbsp;</span>
+      <span style="font-size:18px;font-weight:700;color:var(--verde);font-family:Fraunces,serif">TOTAL: <span id="ev-total">$0</span></span>
+    </div>
+    <div class="alert aa" style="margin-top:10px;font-size:12px">⚠️ Editá cantidades o eliminá ítems. Los cambios ajustan el stock y actualizan la venta en Supabase.</div>
+    <div class="mfoot">
+      <button class="btn bg" onclick="cerrar('m-editar-venta')">Cancelar</button>
+      <button class="btn bv" onclick="guardarEdicionVenta()">💾 Guardar cambios</button>
+    </div>
+  </div>
+</div>
 
 <div class="moverlay" id="m-stats"><div class="modal" style="max-width:800px">
   <h2 id="mstit">📊 Detalle</h2>
@@ -1398,7 +1418,7 @@ function pgIr(mod, n) { _pags[mod] = n; if(_pgRender[mod]) _pgRender[mod](); }
 // ═══════════════════════ UTILS ═══════════════════════
 // Formateadores creados UNA SOLA VEZ y reutilizados (47x más rápido que toLocaleString por llamada)
 const _nf = new Intl.NumberFormat('es-AR', {minimumFractionDigits:0, maximumFractionDigits:0});
-const _rd500 = n => { const v = parseFloat(n)||0; return v === 0 ? 0 : Math.ceil(v/100)*100; };
+const _rd500 = n => { const v = parseFloat(n)||0; return v === 0 ? 0 : Math.ceil(v/50)*50; };
 const _df = new Intl.DateTimeFormat('es-AR');
 const fmt = n => '$' + _nf.format(_rd500(n));
 const hoy = () => new Date().toISOString().split('T')[0];
@@ -2169,6 +2189,8 @@ function verVenta(id){
   const v=ventaActual;
   let rows='';v.items.forEach(function(it){rows+='<tr><td>'+it.nom+'</td><td>'+it.cant+'</td><td>'+fmt(it.precio)+'</td><td>'+fmt(it.precio*it.cant)+'</td></tr>';});
   document.getElementById('dventa').innerHTML='<div style="background:var(--crema);border-radius:10px;padding:14px;font-size:13px"><div style="display:flex;justify-content:space-between;margin-bottom:10px"><div><strong>Venta #'+v.id+'</strong><br>'+fleg(v.fecha)+' '+(v.hora||'')+'</div><div style="text-align:right"><strong>Cliente:</strong> '+v.clinom+'<br><span class="bdg bv2">'+(v.listaNom||v.lista)+'</span></div></div><div class="twrap"><table><thead><tr><th>Artículo</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>'+rows+'</tbody></table></div><div style="margin-top:10px;text-align:right">Subtotal: '+fmt(v.sub)+(v.desc?'<br>Descuento: '+v.desc+'%':'')+'<div style="font-size:20px;font-weight:700;color:var(--verde);font-family:Fraunces,serif">TOTAL: '+fmt(v.total)+'</div>Pago: <strong>'+v.pago+'</strong></div></div>';
+  const btnEdit=document.getElementById('vventa-btn-editar');
+  if(btnEdit) btnEdit.style.display=(_sesion&&_sesion.rol==='Administrador')?'inline-flex':'none';
   abrir('m-vventa');
 }
 function imprimirTicket(){
@@ -2179,7 +2201,146 @@ function imprimirTicket(){
   w.print();
 }
 
+// ── EDITAR VENTA ──
+let _ventaEditando = null;
+let _itemsEditando = [];
 
+function abrirEditarVenta(id){
+  const v = DB.ventas.find(x => x.id === id);
+  if(!v) return;
+  _ventaEditando = v;
+  _itemsEditando = v.items.map(it => Object.assign({}, it)); // copia profunda
+  document.getElementById('ev-titulo').textContent = '#' + v.id + ' — ' + v.clinom + ' — ' + fleg(v.fecha);
+  const dr = document.getElementById('ev-desc-row');
+  if(v.desc){ dr.style.display=''; document.getElementById('ev-desc-pct').textContent=v.desc; }
+  else { dr.style.display='none'; }
+  renderItemsEdicion();
+  abrir('m-editar-venta');
+}
+
+function renderItemsEdicion(){
+  const wrap = document.getElementById('ev-items-wrap');
+  if(!_itemsEditando.length){
+    wrap.innerHTML = '<div class="alert ar" style="margin-bottom:8px">⚠️ No hay ítems. Si guardás así, la venta quedará vacía con total $0.</div>';
+    evRecalc(); return;
+  }
+  wrap.innerHTML = '<div class="twrap"><table><thead><tr><th>Artículo</th><th style="width:90px">Cant.</th><th style="width:100px">Precio</th><th style="width:90px">Subtotal</th><th style="width:36px"></th></tr></thead><tbody id="ev-tbody"></tbody></table></div>';
+  const tb = document.getElementById('ev-tbody');
+  tb.innerHTML = _itemsEditando.map((it, i) => `
+    <tr>
+      <td>${it.nom}</td>
+      <td><input type="number" min="0.01" step="0.01" value="${it.cant}" style="width:80px;border:1.5px solid #ddd;border-radius:5px;padding:4px 6px;font-size:13px;text-align:center" oninput="evCambiarCant(${i},this.value)"></td>
+      <td><input type="number" min="0" step="1" value="${it.precio}" style="width:90px;border:1.5px solid #ddd;border-radius:5px;padding:4px 6px;font-size:13px;text-align:center" oninput="evCambiarPrecio(${i},this.value)"></td>
+      <td class="tv" id="ev-sub-${i}">${fmt(it.cant*it.precio)}</td>
+      <td><button class="btn br bsm" title="Eliminar ítem" onclick="evEliminarItem(${i})">✕</button></td>
+    </tr>`).join('');
+  evRecalc();
+}
+
+function evCambiarCant(i, val){
+  _itemsEditando[i].cant = parseFloat(val)||0;
+  const sub = document.getElementById('ev-sub-'+i);
+  if(sub) sub.textContent = fmt(_itemsEditando[i].cant * _itemsEditando[i].precio);
+  evRecalc();
+}
+
+function evCambiarPrecio(i, val){
+  _itemsEditando[i].precio = parseFloat(val)||0;
+  const sub = document.getElementById('ev-sub-'+i);
+  if(sub) sub.textContent = fmt(_itemsEditando[i].cant * _itemsEditando[i].precio);
+  evRecalc();
+}
+
+function evEliminarItem(i){
+  _itemsEditando.splice(i, 1);
+  renderItemsEdicion();
+}
+
+function evRecalc(){
+  const desc = _ventaEditando ? (_ventaEditando.desc || 0) : 0;
+  const sub = _itemsEditando.reduce((s,it) => s + it.cant*it.precio, 0);
+  const tot = sub * (1 - desc/100);
+  const elSub = document.getElementById('ev-sub');
+  const elTot = document.getElementById('ev-total');
+  if(elSub) elSub.textContent = fmt(sub);
+  if(elTot) elTot.textContent = fmt(tot);
+  return {sub, tot};
+}
+
+async function guardarEdicionVenta(){
+  if(!_ventaEditando){ toast('Error: no hay venta en edición','r'); return; }
+  if(!await confirmar('¿Guardás los cambios en esta venta? Se ajustará el stock automáticamente.')) return;
+
+  const desc = _ventaEditando.desc || 0;
+  const {sub, tot} = evRecalc();
+
+  // 1. Revertir stock original (sumar lo que se había descontado)
+  _ventaEditando.items.forEach(it => {
+    if(it.aid){
+      const art = DB.arts.find(a => a.id === it.aid);
+      if(art && art.usastk !== 'no') art.stk = (art.stk||0) + it.cant;
+    }
+  });
+
+  // 2. Aplicar nuevo stock (descontar los nuevos ítems)
+  _itemsEditando.forEach(it => {
+    if(it.aid){
+      const art = DB.arts.find(a => a.id === it.aid);
+      if(art && art.usastk !== 'no') art.stk = Math.max(0, (art.stk||0) - it.cant);
+    }
+  });
+
+  // 3. Actualizar objeto local
+  const idx = DB.ventas.findIndex(v => v.id === _ventaEditando.id);
+  if(idx >= 0){
+    DB.ventas[idx].items = _itemsEditando.map(it => Object.assign({}, it));
+    DB.ventas[idx].sub = sub;
+    DB.ventas[idx].total = tot;
+  }
+
+  // 4. Sincronizar con Supabase
+  if(_ventaEditando._uuid){
+    try{
+      // Actualizar fila principal de la venta
+      await sbPatch('ventas', _ventaEditando._uuid, { subtotal: sub, total: tot });
+
+      // Borrar venta_items viejos e insertar los nuevos
+      await fetch(`${SUPABASE_URL}/rest/v1/venta_items?venta_id=eq.${_ventaEditando._uuid}`, {
+        method: 'DELETE',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+      });
+      const newItems = _itemsEditando.map(it => ({
+        venta_id: _ventaEditando._uuid, negocio_id: NEGOCIO_ID,
+        articulo_id: it.aid ? (_artNumtoUUID[it.aid] || null) : null,
+        articulo_nombre: it.nom || 'Manual',
+        cantidad: it.cant, precio_unitario: it.precio,
+        subtotal: it.cant * it.precio, es_manual: it.manual === true
+      }));
+      if(newItems.length) await sbPost('venta_items', newItems);
+
+      // Actualizar stock de artículos afectados en Supabase
+      const afectados = new Set([
+        ..._ventaEditando.items.filter(it=>it.aid).map(it=>it.aid),
+        ..._itemsEditando.filter(it=>it.aid).map(it=>it.aid)
+      ]);
+      for(const aid of afectados){
+        const art = DB.arts.find(a => a.id === aid);
+        if(art && art._uuid) await sbPatch('articulos', art._uuid, { stock_actual: art.stk });
+      }
+    } catch(e){
+      console.warn('Error sync edición venta:', e);
+      toast('Guardado local OK — Error sincronizando con Supabase','a');
+    }
+  }
+
+  saveDB();
+  cerrar('m-editar-venta');
+  toast('Venta #' + _ventaEditando.id + ' actualizada correctamente','v');
+  renderHist();
+  renderVentas && renderVentas();
+  _ventaEditando = null;
+  _itemsEditando = [];
+}
 
 
 
