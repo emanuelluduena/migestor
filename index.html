@@ -942,7 +942,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   <div class="mfoot"><button class="btn bg" onclick="cerrar('m-vventa')">Cerrar</button><button class="btn bv" onclick="imprimirTicket()">🖨️ Imprimir</button>
           <button id="vventa-btn-editar" class="btn bt" style="display:none" onclick="cerrar('m-vventa');abrirEditarVenta(ventaActual.id)">✏️ Editar venta</button></div>
 </div></div>
-  
+
 <!-- MODAL EDITAR VENTA -->
 <div class="moverlay" id="m-editar-venta">
   <div class="modal" style="max-width:680px">
@@ -2205,11 +2205,30 @@ function imprimirTicket(){
 let _ventaEditando = null;
 let _itemsEditando = [];
 
-function abrirEditarVenta(id){
+async function abrirEditarVenta(id){
   const v = DB.ventas.find(x => x.id === id);
   if(!v) return;
   _ventaEditando = v;
-  _itemsEditando = v.items.map(it => Object.assign({}, it)); // copia profunda
+
+  // Si no tiene ítems cargados, buscarlos en Supabase
+  if(!v.items || !v.items.length){
+    if(v._uuid){
+      try{
+        const itemsSB = await sbGet('venta_items', `venta_id=eq.${v._uuid}&negocio_id=eq.${NEGOCIO_ID}`);
+        v.items = itemsSB.map(it => ({
+          aid: it.articulo_id ? (_artUUIDtoNum[it.articulo_id] || null) : null,
+          nom: it.articulo_nombre || 'Manual',
+          cant: it.cantidad || 1,
+          precio: it.precio_unitario || 0,
+          manual: it.es_manual || false
+        }));
+      } catch(e){
+        console.warn('Error cargando items de venta:', e);
+      }
+    }
+  }
+
+  _itemsEditando = v.items.map(it => Object.assign({}, it));
   document.getElementById('ev-titulo').textContent = '#' + v.id + ' — ' + v.clinom + ' — ' + fleg(v.fecha);
   const dr = document.getElementById('ev-desc-row');
   if(v.desc){ dr.style.display=''; document.getElementById('ev-desc-pct').textContent=v.desc; }
@@ -2221,7 +2240,7 @@ function abrirEditarVenta(id){
 function renderItemsEdicion(){
   const wrap = document.getElementById('ev-items-wrap');
   if(!_itemsEditando.length){
-    wrap.innerHTML = '<div class="alert ar" style="margin-bottom:8px">⚠️ No hay ítems. Si guardás así, la venta quedará vacía con total $0.</div>';
+    wrap.innerHTML = '<div class="alert aa" style="margin-bottom:8px">⚠️ Esta venta no tiene ítems registrados en el sistema. Solo podés editar ventas recientes.</div>';
     evRecalc(); return;
   }
   wrap.innerHTML = '<div class="twrap"><table><thead><tr><th>Artículo</th><th style="width:90px">Cant.</th><th style="width:100px">Precio</th><th style="width:90px">Subtotal</th><th style="width:36px"></th></tr></thead><tbody id="ev-tbody"></tbody></table></div>';
