@@ -16,8 +16,9 @@ header{background:linear-gradient(135deg,var(--verde) 0%,var(--verde-claro) 100%
 .hinfo{display:flex;align-items:center;gap:18px;font-size:13px;opacity:0.9;}
 nav{background:var(--blanco);border-bottom:2px solid var(--verde-suave);display:flex;overflow-x:auto;gap:2px;padding:0 12px;scrollbar-width:none;position:sticky;top:62px;z-index:99;}
 nav::-webkit-scrollbar{display:none;}
-.tab{display:flex;flex-direction:column;align-items:center;padding:10px 14px 8px;cursor:pointer;border:none;background:none;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;color:var(--gris);white-space:nowrap;border-bottom:3px solid transparent;transition:all 0.2s;gap:2px;min-width:72px;}
+.tab{display:flex;flex-direction:column;align-items:center;padding:10px 14px 8px;cursor:pointer;border:none;background:none;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;color:var(--gris);white-space:nowrap;border-bottom:3px solid transparent;transition:all 0.2s;gap:2px;min-width:72px;position:relative;}
 .tab .ti{font-size:18px;}
+.tab-badge{position:absolute;top:4px;right:6px;background:var(--rojo);color:white;font-size:10px;font-weight:700;line-height:1;border-radius:10px;padding:2px 5px;min-width:16px;text-align:center;}
 .tab .tk{font-size:9px;background:rgba(0,0,0,0.1);border-radius:3px;padding:1px 4px;color:var(--gris);}
 .tab:hover{color:var(--verde-claro);background:var(--verde-suave);border-radius:8px 8px 0 0;}
 .tab.activo{color:var(--verde);border-bottom-color:var(--verde);font-weight:600;}
@@ -186,7 +187,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
 </header>
 <nav id="nav">
   <button class="tab activo" onclick="irA('inicio')" data-tab="inicio"><span class="ti">🏠</span>Inicio</button>
-  <button class="tab" onclick="irA('articulos')" data-tab="articulos"><span class="ti">📦</span>Artículos</button>
+  <button class="tab" onclick="irA('articulos')" data-tab="articulos"><span class="ti">📦</span>Artículos<span id="badge-stockbajo" class="tab-badge" style="display:none"></span></button>
   <button class="tab" onclick="irA('proveedores')" data-tab="proveedores"><span class="ti">🚚</span>Proveedores</button>
   <button class="tab" onclick="irA('clientes')" data-tab="clientes"><span class="ti">👥</span>Clientes</button>
   <button class="tab" onclick="irA('usuarios')" data-tab="usuarios"><span class="ti">👤</span>Usuarios</button>
@@ -201,6 +202,8 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   <button class="tab" onclick="irA('bitacora')" data-tab="bitacora"><span class="ti">🔒</span>Bitácora</button>
   <button class="tab" onclick="irA('importar')" data-tab="importar"><span class="ti">📂</span>Importar/Export.</button>
   <button class="tab" onclick="irA('asistente')" data-tab="asistente"><span class="ti">🤖</span>Asistente IA</button>
+  <button class="tab" onclick="irA('tareas')" data-tab="tareas"><span class="ti">✅</span>Tareas<span id="badge-tareas" class="tab-badge" style="display:none"></span></button>
+  <button class="tab" onclick="irA('horarios')" data-tab="horarios"><span class="ti">🕒</span>Horarios</button>
 </nav>
 <main>
 
@@ -754,10 +757,238 @@ tbody td{padding:9px 13px;vertical-align:middle;}
     </div>
 
     <div class="twrap"><table>
-      <thead><tr><th style="width:30px"></th><th>Código</th><th>Nombre</th><th>Categoría</th><th>Costo</th><th>% L1</th><th>Precio L1</th><th>% L2</th><th>Precio L2</th><th>% L3</th><th>Precio L3</th><th>% Mayor</th><th>Precio Mayor</th></tr></thead>
+      <thead><tr><th style="width:30px"></th><th>Código</th><th>Nombre</th><th>Categoría</th><th>Costo</th><th>% L1</th><th>Precio L1</th><th>% L2</th><th>Precio L2</th><th>% L3</th><th>Precio L3</th><th>% Mayor</th><th>Precio Mayor</th><th>Vta. Mayor</th></tr></thead>
       <tbody id="tprecios"></tbody>
     </table></div>
   <div id="pg-precios"></div>
+  </div>
+</div>
+
+<div id="mod-tareas" class="modulo">
+  <div class="panel">
+    <div class="ptit">✅ Tareas y Mensajes</div>
+    <div class="brow">
+      <button class="btn bv bsm" id="subtab-check-btn" onclick="subTabTareas('check')">📋 Checklist</button>
+      <button class="btn bg bsm" id="subtab-msg-btn" onclick="subTabTareas('msg')">💬 Mensajes<span id="badge-msg-sub" class="bdg br2" style="display:none;margin-left:5px"></span></button>
+    </div>
+  </div>
+
+  <div id="panel-checklist" class="panel">
+    <div class="brow" style="justify-content:space-between">
+      <div class="brow" style="margin:0">
+        <button class="btn bg bsm" onclick="cambiarFechaChecklist(-1)">◀</button>
+        <input type="date" id="check-fecha" onchange="onFechaChecklistChange()" style="border:1.5px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:14px">
+        <button class="btn bg bsm" onclick="cambiarFechaChecklist(1)">▶</button>
+        <button class="btn bg bsm" onclick="irAHoyChecklist()">Hoy</button>
+        <span id="check-diasemana" style="font-weight:600;color:var(--verde);text-transform:capitalize"></span>
+      </div>
+      <div class="brow" id="check-filtro-wrap" style="margin:0">
+        <select id="check-filtro" onchange="renderChecklist()" style="border:1.5px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px">
+          <option value="mias">Mis tareas</option>
+          <option value="todas">Todas</option>
+        </select>
+      </div>
+    </div>
+    <div class="brow">
+      <button class="btn bv bsm" onclick="abrirNuevaTarea()">➕ Nueva tarea</button>
+      <button class="btn bg bsm" onclick="abrirPlantillas()">📌 Plantillas</button>
+      <button class="btn bg bsm" onclick="abrirCopiarDia()">📅 Copiar este día a...</button>
+    </div>
+    <div id="lista-checklist" style="margin-top:14px"></div>
+  </div>
+
+  <div id="panel-mensajes" class="panel" style="display:none">
+    <div class="pvl" style="grid-template-columns:220px 1fr">
+      <div>
+        <div class="stit" style="display:flex;justify-content:space-between;align-items:center">
+          <span>Contactos</span>
+          <button class="btn bt bsm" id="btn-msj-masivo" onclick="abrirMensajeMasivo()" style="display:none;font-size:10px;padding:3px 7px">📢 A todos</button>
+        </div>
+        <div id="lista-contactos"></div>
+      </div>
+      <div>
+        <div class="stit" id="msg-titulo-conv">Elegí un contacto</div>
+        <div id="lista-mensajes" style="height:320px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:10px;margin-bottom:10px;background:var(--crema)"></div>
+        <div class="brow" style="margin:0">
+          <input type="text" id="msg-texto" placeholder="Escribí un mensaje..." style="flex:1;border:1.5px solid #e5e7eb;border-radius:8px;padding:8px 12px" onkeydown="if(event.key==='Enter')enviarMensaje()">
+          <button class="btn bv bsm" onclick="enviarMensaje()">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="moverlay" id="m-tarea">
+  <div class="modal">
+    <h2>📋 Nueva tarea</h2>
+    <input type="hidden" id="tarea-id">
+    <div class="fg" style="margin-bottom:12px">
+      <label>Texto de la tarea</label>
+      <textarea id="tarea-texto" rows="2" placeholder="Ej: Pedido a proveedor de harinas"></textarea>
+    </div>
+    <div class="fgrid">
+      <div class="fg">
+        <label>Categoría</label>
+        <select id="tarea-cat">
+          <option value="General">General</option>
+          <option value="Apertura">Apertura</option>
+          <option value="Cierre">Cierre</option>
+          <option value="Pedidos">Pedidos</option>
+          <option value="Limpieza">Limpieza</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Prioridad</label>
+        <select id="tarea-prioridad">
+          <option value="normal">Normal</option>
+          <option value="importante">Importante</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Fecha</label>
+        <input type="date" id="tarea-fecha">
+      </div>
+      <div class="fg">
+        <label>Asignar a</label>
+        <select id="tarea-asignado"></select>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:8px">
+      <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:13px"><input type="checkbox" id="tarea-plantilla"> Guardar también como plantilla recurrente</label>
+    </div>
+    <div class="mfoot">
+      <button class="btn bg" onclick="cerrar('m-tarea')">Cancelar</button>
+      <button class="btn bv" onclick="guardarTarea()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="moverlay" id="m-plantillas">
+  <div class="modal">
+    <h2>📌 Plantillas recurrentes</h2>
+    <div id="lista-plantillas"></div>
+    <div class="mfoot">
+      <button class="btn bg" onclick="cerrar('m-plantillas')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="moverlay" id="m-copiar-dia">
+  <div class="modal">
+    <h2>📅 Copiar tareas de este día</h2>
+    <div class="fg" style="margin-bottom:12px">
+      <label>Copiar al día</label>
+      <input type="date" id="copiar-fecha-destino">
+    </div>
+    <div class="brow">
+      <button class="btn bg bsm" onclick="atajoCopiar(7)">+ 1 semana</button>
+      <button class="btn bg bsm" onclick="atajoCopiar(1)">+ 1 día</button>
+    </div>
+    <div class="mfoot">
+      <button class="btn bg" onclick="cerrar('m-copiar-dia')">Cancelar</button>
+      <button class="btn bv" onclick="confirmarCopiarDia()">Copiar tareas</button>
+    </div>
+  </div>
+</div>
+
+<div class="moverlay" id="m-msj-masivo">
+  <div class="modal">
+    <h2>📢 Mensaje a todos los empleados</h2>
+    <div class="alert aa" style="margin-bottom:12px;font-size:13px">Este mensaje se va a enviar a todos los usuarios cargados en el sistema (menos vos).</div>
+    <div class="fg" style="margin-bottom:12px">
+      <label>Mensaje</label>
+      <textarea id="msj-masivo-texto" rows="3" placeholder="Ej: Recuerden hacer el pedido de verduras antes del mediodía"></textarea>
+    </div>
+    <div class="mfoot">
+      <button class="btn bg" onclick="cerrar('m-msj-masivo')">Cancelar</button>
+      <button class="btn bv" onclick="enviarMensajeMasivo()">Enviar a todos</button>
+    </div>
+  </div>
+</div>
+
+<div id="mod-horarios" class="modulo">
+  <div class="panel">
+    <div class="ptit">🕒 Horarios y Fichaje</div>
+    <div class="brow">
+      <button class="btn bv bsm" id="subtab-horplan-btn" onclick="subTabHorarios('plan')">📅 Planificación</button>
+      <button class="btn bg bsm" id="subtab-fichaje-btn" onclick="subTabHorarios('fichaje')">🕘 Fichaje</button>
+    </div>
+  </div>
+
+  <div id="panel-horplan" class="panel">
+    <div class="brow" style="justify-content:space-between">
+      <div class="brow" style="margin:0">
+        <button class="btn bg bsm" onclick="cambiarFechaHorarios(-1)">◀</button>
+        <input type="date" id="hor-fecha" onchange="onFechaHorariosChange()" style="border:1.5px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:14px">
+        <button class="btn bg bsm" onclick="cambiarFechaHorarios(1)">▶</button>
+        <button class="btn bg bsm" onclick="irAHoyHorarios()">Hoy</button>
+        <span id="hor-diasemana" style="font-weight:600;color:var(--verde);text-transform:capitalize"></span>
+      </div>
+      <div class="brow" id="hor-filtro-wrap" style="margin:0">
+        <select id="hor-filtro" onchange="renderPlanHorarios()" style="border:1.5px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px">
+          <option value="mias">Mis turnos</option>
+          <option value="todas">Todos</option>
+        </select>
+      </div>
+    </div>
+    <div class="brow" id="hor-btn-nuevo-wrap">
+      <button class="btn bv bsm" onclick="abrirNuevoHorario()">➕ Asignar turno</button>
+    </div>
+    <div id="lista-horarios" style="margin-top:14px"></div>
+  </div>
+
+  <div id="panel-fichaje" class="panel" style="display:none">
+    <div class="panel" id="ficha-propia-wrap" style="background:var(--crema);margin-bottom:16px">
+      <div class="ptit" style="font-size:15px">🕘 Tu fichaje de hoy</div>
+      <div id="ficha-propia-estado" style="margin-top:8px"></div>
+    </div>
+    <div id="ficha-admin-wrap">
+      <div class="brow" style="justify-content:space-between">
+        <div class="ptit" style="font-size:15px;margin:0">📋 Fichajes del equipo</div>
+        <input type="date" id="ficha-fecha" onchange="renderFichajesEquipo()" style="border:1.5px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:14px">
+      </div>
+      <div class="twrap" style="margin-top:10px"><table>
+        <thead><tr><th>Empleado</th><th>Entrada</th><th>Salida</th><th>Horas</th></tr></thead>
+        <tbody id="tficha-equipo"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<div class="moverlay" id="m-horario">
+  <div class="modal">
+    <h2>🕒 Asignar turno</h2>
+    <input type="hidden" id="hor-id">
+    <div class="fgrid">
+      <div class="fg">
+        <label>Empleado</label>
+        <select id="hor-empleado"></select>
+      </div>
+      <div class="fg">
+        <label id="hor-fecha-label">Fecha desde</label>
+        <input type="date" id="hor-fecha-modal">
+      </div>
+      <div class="fg" id="hor-fecha-hasta-wrap">
+        <label>Hasta (repetir varios días)</label>
+        <input type="date" id="hor-fecha-hasta">
+      </div>
+      <div class="fg">
+        <label>Hora inicio</label>
+        <input type="time" id="hor-inicio">
+      </div>
+      <div class="fg">
+        <label>Hora fin</label>
+        <input type="time" id="hor-fin">
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:8px">
+      <label>Notas (opcional)</label>
+      <input type="text" id="hor-notas" placeholder="Ej: cubre turno de Marcos">
+    </div>
+    <div class="mfoot">
+      <button class="btn bg" onclick="cerrar('m-horario')">Cancelar</button>
+      <button class="btn bv" onclick="guardarHorario()">Guardar</button>
+    </div>
   </div>
 </div>
 
@@ -1216,6 +1447,19 @@ async function _syncSupabase(tipo, data) {
         descripcion: data.desc, metodo_pago: data.met, monto: data.monto
       });
       if (res[0]) data._uuid = res[0].id;
+    } else if (tipo === 'usr_new') {
+      const res = await sbPost('usuarios', {
+        negocio_id: NEGOCIO_ID, nombre: data.nom, username: data.usr,
+        password_hash: data.pass, rol: data.rol, activo: data.activo !== false
+      });
+      if (res[0]) data._uuid = res[0].id;
+    } else if (tipo === 'usr_update' && data._uuid) {
+      await sbPatch('usuarios', data._uuid, {
+        nombre: data.nom, username: data.usr, password_hash: data.pass,
+        rol: data.rol, activo: data.activo !== false
+      });
+    } else if (tipo === 'usr_del' && data._uuid) {
+      await sbDelete('usuarios', data._uuid);
     }
   } catch(e) {
     console.warn('Supabase sync error:', tipo, e.message);
@@ -1249,11 +1493,20 @@ function loadDB() {
   return defaults;
 }
 let DB = loadDB();
+function actualizarBadgeStock() {
+  const badge = document.getElementById('badge-stockbajo');
+  if(!badge || !DB || !DB.arts) return;
+  const n = DB.arts.filter(function(a){return a.usastk!=='no'&&a.stk<=a.stkmin;}).length;
+  if(n > 0) { badge.textContent = n; badge.style.display = 'inline-block'; }
+  else { badge.style.display = 'none'; }
+}
+
 function saveDB(syncTipo=null, syncData=null) {
   localStorage.setItem(SK, JSON.stringify(DB));
   if (typeof _renderCache !== 'undefined') {
     Object.keys(_renderCache).forEach(k => delete _renderCache[k]);
   }
+  actualizarBadgeStock();
   // Sync con Supabase si hay algo pendiente
   if (syncTipo && syncData) {
     _syncSupabase(syncTipo, syncData);
@@ -1267,14 +1520,15 @@ const MODS_NOMBRES = {
   ventas:'Ventas', caja:'Caja', estadisticas:'Estadísticas',
   gastos:'Gastos', contabilidad:'Contabilidad', precios:'Precios',
   config:'Configuración', bitacora:'Bitácora', importar:'Importar/Export.',
-  asistente:'Asistente IA'
+  asistente:'Asistente IA', tareas:'Tareas', horarios:'Horarios'
 };
 const PERMISOS_ROL = {
   'Administrador': Object.keys(MODS_NOMBRES),
-  'Vendedor':      ['inicio','ventas','articulos','clientes','proveedores','precios','asistente'],
-  'Cajero':        ['inicio','ventas','caja','asistente'],
-  'Solo Consulta': ['inicio','articulos','estadisticas','precios','asistente']
+  'Vendedor':      ['inicio','ventas','articulos','clientes','proveedores','precios','asistente','tareas','horarios'],
+  'Cajero':        ['inicio','ventas','caja','asistente','tareas','horarios'],
+  'Solo Consulta': ['inicio','articulos','estadisticas','precios','asistente','tareas','horarios']
 };
+
 
 let _sesion = null; // usuario logueado
 
@@ -1440,6 +1694,32 @@ window.addEventListener('load', function() {
 const _renderCache = {};
 const _siempreRender = new Set(['inicio', 'ventas', 'caja']);
 
+// ═══════════════════════ PERSISTENCIA DE FILTROS ═══════════════════════
+const FILTROS_MOD = {
+  articulos:   { ids:['bart','fcat','fprov','fstk'], fn:'filtArt' },
+  proveedores: { ids:['bprov'], fn:'filtProv' },
+  clientes:    { ids:['bcli'], fn:'filtCli' },
+  precios:     { ids:['prec-bus'], fn:'renderPreciosFiltro' },
+  ventas:      { ids:['pvbus'], fn:'filtPV' }
+};
+function guardarFiltroInput(id) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  try { localStorage.setItem('filtro_'+id, el.value); } catch(e){}
+}
+function restaurarFiltrosMod(tab) {
+  const cfg = FILTROS_MOD[tab];
+  if(!cfg) return;
+  cfg.ids.forEach(function(id){
+    const el = document.getElementById(id);
+    if(!el) return;
+    const g = localStorage.getItem('filtro_'+id);
+    if(g !== null) el.value = g;
+  });
+  const fn = window[cfg.fn];
+  if(typeof fn === 'function') fn();
+}
+
 function _firma(tab) {
   try {
     switch(tab) {
@@ -1482,6 +1762,7 @@ function irA(tab) {
       renderMod(tab);
       if (firmaActual !== null) _renderCache[tab] = firmaActual;
     }
+    restaurarFiltrosMod(tab);
   } catch(err) {
     console.error('Error en irA('+tab+'):', err);
   }
@@ -1504,10 +1785,13 @@ function renderMod(tab) {
   else if(tab==='precios') renderPrecios();
   else if(tab==='importar') renderImportar();
   else if(tab==='asistente') renderAsistente();
+  else if(tab==='tareas') renderTareas();
+  else if(tab==='horarios') renderHorarios();
 }
 
 // ═══════════════════════ INICIO ═══════════════════════
 function renderInicio() {
+  actualizarBadgeStock();
   var hoyStr = hoy();
   var mesStr = new Date().toISOString().slice(0,7);
   var vh = DB.ventas.filter(function(v){return v.fecha===hoyStr;}).reduce(function(s,v){return s+v.total;},0);
@@ -1699,6 +1983,7 @@ function limpiarFiltros() {
   document.getElementById('fcat').value='';
   document.getElementById('fprov').value='';
   document.getElementById('fstk').value='';
+  ['bart','fcat','fprov','fstk'].forEach(guardarFiltroInput);
   _selArt.clear();
   renderArts();
 }
@@ -1732,6 +2017,7 @@ function editarSeleccionado() {
   editArt(ids[0]);
 }
 function filtArt() {
+  ['bart','fcat','fprov','fstk'].forEach(guardarFiltroInput);
   const q=document.getElementById('bart').value.toLowerCase();
   const cat=document.getElementById('fcat').value;
   const provNom=document.getElementById('fprov').value;
@@ -1827,7 +2113,7 @@ function renderProvs(lista) {
   if(!provs.length){tb.innerHTML='<tr><td colspan="7"><div class="vacio"><div class="vi">🚚</div><p>Sin proveedores</p></div></td></tr>';return;}
   tb.innerHTML=provs.map(p=>'<tr><td>'+p.id+'</td><td><strong>'+p.nom+'</strong></td><td>'+(p.cuit||'-')+'</td><td>'+(p.tel||'-')+'</td><td>'+(p.email||'-')+'</td><td><span class="bdg bv2">'+(p.rub||'-')+'</span></td><td><button class="btn bg bsm" onclick="editProv('+p.id+')">✏️</button> <button class="btn br bsm" onclick="delProv('+p.id+')">🗑️</button></td></tr>').join('');
 }
-function filtProv(){const q=document.getElementById('bprov').value.toLowerCase();renderProvs(DB.provs.filter(p=>p.nom.toLowerCase().includes(q)));}
+function filtProv(){guardarFiltroInput('bprov');const q=document.getElementById('bprov').value.toLowerCase();renderProvs(DB.provs.filter(p=>p.nom.toLowerCase().includes(q)));}
 function abrirProv(){document.getElementById('prov-id').value='';document.getElementById('mprov-tit').textContent='Nuevo Proveedor';['nom','cuit','tel','email','dir','rub','not'].forEach(f=>{const el=document.getElementById('prov-'+f);if(el)el.value='';});abrir('m-prov');}
 function editProv(id){const p=DB.provs.find(x=>x.id===id);if(!p)return;document.getElementById('prov-id').value=id;document.getElementById('mprov-tit').textContent='Editar Proveedor';document.getElementById('prov-nom').value=p.nom;document.getElementById('prov-cuit').value=p.cuit||'';document.getElementById('prov-tel').value=p.tel||'';document.getElementById('prov-email').value=p.email||'';document.getElementById('prov-dir').value=p.dir||'';document.getElementById('prov-rub').value=p.rub||'';document.getElementById('prov-not').value=p.not||'';abrir('m-prov');}
 function guardarProv(){const nom=document.getElementById('prov-nom').value.trim();if(!nom){toast('Ingresá el nombre','a');return;}const d={nom,cuit:document.getElementById('prov-cuit').value.trim(),tel:document.getElementById('prov-tel').value.trim(),email:document.getElementById('prov-email').value.trim(),dir:document.getElementById('prov-dir').value.trim(),rub:document.getElementById('prov-rub').value.trim(),not:document.getElementById('prov-not').value.trim()};const eid=document.getElementById('prov-id').value;if(eid){const i=DB.provs.findIndex(x=>x.id==eid);if(i>=0)DB.provs[i]={...DB.provs[i],...d};}else{d.id=nid('prov');DB.provs.push(d);}saveDB();cerrar('m-prov');renderProvs();}
@@ -1840,7 +2126,7 @@ function renderClis(lista){
   if(!clis.length){tb.innerHTML='<tr><td colspan="6"><div class="vacio"><div class="vi">👥</div><p>Sin clientes</p></div></td></tr>';return;}
   tb.innerHTML=clis.map(c=>{const s=DB.ventas.filter(v=>v.cliid==c.id&&v.pago==='Cuenta Corriente').reduce((a,v)=>a+v.total,0);return '<tr><td>'+c.id+'</td><td><strong>'+c.nom+'</strong></td><td>'+(c.dni||'-')+'</td><td>'+(c.tel||'-')+'</td><td><span class="bdg bv2">'+(lnom[c.lista]||c.lista)+'</span></td><td class="'+(s>0?'tr2':'tv')+'">'+fmt(s)+'</td><td><button class="btn bg bsm" onclick="editCli('+c.id+')">✏️</button> <button class="btn br bsm" onclick="delCli('+c.id+')">🗑️</button></td></tr>';}).join('');
 }
-function filtCli(){const q=document.getElementById('bcli').value.toLowerCase();renderClis(DB.clis.filter(c=>c.nom.toLowerCase().includes(q)||(c.dni||'').includes(q)));}
+function filtCli(){guardarFiltroInput('bcli');const q=document.getElementById('bcli').value.toLowerCase();renderClis(DB.clis.filter(c=>c.nom.toLowerCase().includes(q)||(c.dni||'').includes(q)));}
 function abrirCli(){document.getElementById('cli-id').value='';document.getElementById('mcli-tit').textContent='Nuevo Cliente';['nom','dni','tel','email','dir'].forEach(f=>document.getElementById('cli-'+f).value='');document.getElementById('cli-lista').value='lista1';abrir('m-cli');}
 function editCli(id){const c=DB.clis.find(x=>x.id===id);if(!c)return;document.getElementById('cli-id').value=id;document.getElementById('mcli-tit').textContent='Editar Cliente';document.getElementById('cli-nom').value=c.nom;document.getElementById('cli-dni').value=c.dni||'';document.getElementById('cli-tel').value=c.tel||'';document.getElementById('cli-email').value=c.email||'';document.getElementById('cli-dir').value=c.dir||'';document.getElementById('cli-lista').value=c.lista||'lista1';abrir('m-cli');}
 function guardarCli(){const nom=document.getElementById('cli-nom').value.trim();if(!nom){toast('Ingresá el nombre','a');return;}const d={nom,dni:document.getElementById('cli-dni').value.trim(),tel:document.getElementById('cli-tel').value.trim(),email:document.getElementById('cli-email').value.trim(),dir:document.getElementById('cli-dir').value.trim(),lista:document.getElementById('cli-lista').value};const eid=document.getElementById('cli-id').value;if(eid){const i=DB.clis.findIndex(x=>x.id==eid);if(i>=0)DB.clis[i]={...DB.clis[i],...d};}else{d.id=nid('cli');DB.clis.push(d);}saveDB();cerrar('m-cli');renderClis();}
@@ -1958,7 +2244,7 @@ function renderPVArts(lista){
   _filaSelPV=-1;
 }
 _pgRender['pv'] = function(){ renderPVArts(_pvArts); };
-function filtPV(){_filaSelPV=-1;_pags['pv']=1;const q=document.getElementById('pvbus').value.toLowerCase();renderPVArts(DB.arts.filter(a=>a.nom.toLowerCase().includes(q)||a.cod.toLowerCase().includes(q)));}
+function filtPV(){guardarFiltroInput('pvbus');_filaSelPV=-1;_pags['pv']=1;const q=document.getElementById('pvbus').value.toLowerCase();renderPVArts(DB.arts.filter(a=>a.nom.toLowerCase().includes(q)||a.cod.toLowerCase().includes(q)));}
 function refrescaPV(){renderPVArts();recalc();}
 function limpiaPV(){document.getElementById('pvbus').value='';_pags['pv']=1;renderPVArts();document.getElementById('pvbus').focus();}
 function pvEnter(){
@@ -3281,10 +3567,11 @@ function getPreciosFiltrados() {
 }
 
 function renderPreciosFiltro() {
+  guardarFiltroInput('prec-bus');
   var arts = getPreciosFiltrados();
   var tb = document.getElementById('tprecios');
   var pgEl = document.getElementById('pg-precios');
-  if(!arts.length){tb.innerHTML='<tr><td colspan="13"><div class="vacio"><div class="vi">💲</div><p>Sin artículos</p></div></td></tr>';if(pgEl)pgEl.innerHTML='';return;}
+  if(!arts.length){tb.innerHTML='<tr><td colspan="14"><div class="vacio"><div class="vi">💲</div><p>Sin artículos</p></div></td></tr>';if(pgEl)pgEl.innerHTML='';return;}
   var pg=paginar('precios',arts);
   tb.innerHTML = pg.slice.map(function(a){
     return '<tr>' +
@@ -3301,6 +3588,7 @@ function renderPreciosFiltro() {
       '<td class="tv">'+fmt(pxc(a.cos,a.u3))+'</td>' +
       '<td><input type="number" class="prec-input" data-id="'+a.id+'" data-campo="um" value="'+a.um+'" style="width:55px;border:1px solid #ddd;border-radius:4px;padding:3px;text-align:center" onchange="actualizarPrecioArt(this)"></td>' +
       '<td class="tt2">'+fmt(pxc(a.cos,a.um))+'</td>' +
+      '<td style="text-align:center"><input type="checkbox" '+(a.usapm!==false?'checked':'')+' onchange="toggleUsaPM('+a.id+',this)" title="Activar precio mayor automático"></td>' +
     '</tr>';
   }).join('');
   if(pgEl)pgEl.innerHTML=pg.nav;
@@ -3332,6 +3620,683 @@ function actualizarPrecioArt(input) {
     {td: precios[3], u: art.um}
   ];
   campos.forEach(function(c){ if(c.td) c.td.textContent = fmt(pxc(art.cos, c.u)); });
+}
+
+function toggleUsaPM(id, chk) {
+  var art = DB.arts.find(function(a){return a.id===id;});
+  if(!art) return;
+  art.usapm = chk.checked;
+  saveDB('art_update', art);
+  toast(art.nom+': precio mayor '+(chk.checked?'activado':'desactivado'), 'v');
+}
+
+// ═══════════════════════ TAREAS Y MENSAJES ═══════════════════════
+// Nota: se guardan en una clave de localStorage PROPIA, separada de DB.
+// Esto es a propósito: DB se pisa por completo cada vez que alguien inicia sesión
+// (porque se vuelve a cargar entero desde Supabase), así que si guardáramos las
+// tareas/mensajes adentro de DB se perderían en cada login. De esta forma quedan
+// guardadas en esta computadora/navegador, sin importar quién entre o cuántas
+// veces se recargue la página. OJO: esto significa que hoy funcionan bien si todos
+// los empleados usan la MISMA computadora del local para entrar al sistema. Si en
+// el futuro alguien necesita ver sus tareas desde su propio celular, hay que migrar
+// esto a una tabla de Supabase (es otro paso, avisame cuando lo quieras encarar).
+let TAREAS = [];
+let MENSAJES = [];
+
+// Convierte una fila de la tabla 'tareas' de Supabase al formato que usa el módulo
+function _mapTareaSB(t) {
+  return {
+    id: t.id, fecha: t.fecha, texto: t.texto,
+    categoria: t.categoria || 'General', prioridad: t.prioridad || 'normal',
+    asignadoA: t.asignado_a || null, asignadoNom: t.asignado_nom || null,
+    creadoPor: t.creado_por, creadoPorNom: t.creado_por_nom,
+    hecha: !!t.hecha, hechaPor: t.hecha_por || null, hechaNom: t.hecha_nom || null, hechaEn: t.hecha_en || null,
+    esPlantilla: !!t.es_plantilla
+  };
+}
+// Convierte una fila de la tabla 'mensajes' de Supabase al formato que usa el módulo
+function _mapMensajeSB(m) {
+  return { id: m.id, de: m.de, para: m.para, texto: m.texto, fecha: m.created_at, leido: !!m.leido, masivo: !!m.masivo };
+}
+
+async function cargarTareasYMensajes() {
+  try {
+    const ng = `negocio_id=eq.${NEGOCIO_ID}`;
+    const [tareasSB, mensajesSB] = await Promise.all([
+      sbGet('tareas', `${ng}&order=fecha.desc`),
+      sbGet('mensajes', `${ng}&order=created_at.asc`)
+    ]);
+    TAREAS = tareasSB.map(_mapTareaSB);
+    MENSAJES = mensajesSB.map(_mapMensajeSB);
+  } catch(e) {
+    console.warn('No se pudieron cargar tareas/mensajes desde Supabase:', e);
+    TAREAS = []; MENSAJES = [];
+  }
+  actualizarBadgeTareas();
+}
+function guardarTareas(){ actualizarBadgeTareas(); }
+function guardarMensajes(){ actualizarBadgeTareas(); }
+function esAdmin(){ return _sesion && _sesion.rol === 'Administrador'; }
+
+let _fechaChecklist = hoy();
+let _subTabTareas = 'check';
+let _contactoActivo = null;
+
+function renderTareas(){
+  subTabTareas(_subTabTareas);
+}
+
+function subTabTareas(tab){
+  _subTabTareas = tab;
+  document.getElementById('panel-checklist').style.display = tab==='check' ? '' : 'none';
+  document.getElementById('panel-mensajes').style.display = tab==='msg' ? '' : 'none';
+  document.getElementById('subtab-check-btn').className = 'btn '+(tab==='check'?'bv':'bg')+' bsm';
+  document.getElementById('subtab-msg-btn').className = 'btn '+(tab==='msg'?'bv':'bg')+' bsm';
+  if(tab==='check') renderChecklist();
+  else renderMensajes();
+}
+
+// ───────── CHECKLIST ─────────
+function onFechaChecklistChange(){
+  _fechaChecklist = document.getElementById('check-fecha').value || hoy();
+  renderChecklist();
+}
+function cambiarFechaChecklist(dias){
+  const d = new Date(_fechaChecklist+'T00:00:00');
+  d.setDate(d.getDate()+dias);
+  _fechaChecklist = d.toISOString().slice(0,10);
+  renderChecklist();
+}
+function irAHoyChecklist(){ _fechaChecklist = hoy(); renderChecklist(); }
+
+function renderChecklist(){
+  const fEl = document.getElementById('check-fecha');
+  if(fEl) fEl.value = _fechaChecklist;
+  const diaEl = document.getElementById('check-diasemana');
+  if(diaEl){
+    const d = new Date(_fechaChecklist+'T00:00:00');
+    diaEl.textContent = d.toLocaleDateString('es-AR',{weekday:'long', day:'numeric', month:'long'});
+  }
+  const filtro = document.getElementById('check-filtro').value;
+  let tareasDia = TAREAS.filter(function(t){ return t.fecha===_fechaChecklist; });
+  if(!esAdmin() || filtro==='mias'){
+    tareasDia = tareasDia.filter(function(t){
+      return t.asignadoA===null || t.asignadoA===_sesion._uuid || t.creadoPor===_sesion._uuid;
+    });
+  }
+  const cont = document.getElementById('lista-checklist');
+  if(!tareasDia.length){
+    cont.innerHTML = '<div class="vacio"><div class="vi">📋</div><p>Sin tareas para este día</p></div>';
+    return;
+  }
+  tareasDia.sort(function(a,b){ return (a.hecha?1:0)-(b.hecha?1:0); });
+  cont.innerHTML = tareasDia.map(function(t){
+    const puedeEditar = esAdmin() || t.creadoPor===_sesion._uuid;
+    const asigNom = t.asignadoA===null ? 'Todos' : (t.asignadoA===_sesion._uuid ? 'Vos' : (t.asignadoNom||'—'));
+    const prio = t.prioridad==='importante' ? '<span class="bdg br2">⚠️ Importante</span>' : '';
+    return '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 4px;border-bottom:1px solid #f0f0f0'+(t.hecha?';opacity:0.55':'')+'">' +
+      '<input type="checkbox" '+(t.hecha?'checked':'')+' onchange="toggleTareaHecha(\''+t.id+'\')" style="margin-top:3px">' +
+      '<div style="flex:1">' +
+        '<div style="'+(t.hecha?'text-decoration:line-through':'')+'">'+t.texto+'</div>' +
+        '<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap">' +
+          '<span class="bdg bv2">'+t.categoria+'</span>'+prio+
+          '<span class="bdg bt2">👤 '+asigNom+'</span>'+
+          (t.hecha?'<span class="bdg bv2">✔ '+(t.hechaNom||'')+'</span>':'')+
+        '</div>' +
+      '</div>' +
+      (puedeEditar?'<button class="btn br bsm" onclick="borrarTarea(\''+t.id+'\')">🗑️</button>':'') +
+    '</div>';
+  }).join('');
+}
+
+async function toggleTareaHecha(id){
+  const t = TAREAS.find(function(x){return x.id===id;});
+  if(!t) return;
+  t.hecha = !t.hecha;
+  t.hechaPor = t.hecha ? _sesion._uuid : null;
+  t.hechaNom = t.hecha ? _sesion.nom : null;
+  t.hechaEn = t.hecha ? new Date().toISOString() : null;
+  renderChecklist();
+  guardarTareas();
+  try {
+    await sbPatch('tareas', t.id, { hecha: t.hecha, hecha_por: t.hechaPor, hecha_nom: t.hechaNom, hecha_en: t.hechaEn });
+  } catch(e) {
+    console.warn('Error al actualizar tarea en Supabase:', e);
+    toast('No se pudo guardar el cambio, revisá la conexión', 'a');
+  }
+  if(t.hecha && typeof DB!=='undefined' && DB.bitacora){
+    DB.bitacora.push({ts:Date.now(), tipo:'tarea', usr:_sesion.nom, det:'Completó tarea: '+t.texto});
+    saveDB();
+  }
+}
+
+async function borrarTarea(id){
+  if(!await confirmar('¿Borrás esta tarea?')) return;
+  TAREAS = TAREAS.filter(function(t){return t.id!==id;});
+  renderChecklist();
+  guardarTareas();
+  try {
+    await sbDelete('tareas', id);
+  } catch(e) {
+    console.warn('Error al borrar tarea en Supabase:', e);
+    toast('No se pudo borrar en el servidor, revisá la conexión', 'a');
+  }
+}
+
+function abrirNuevaTarea(){
+  document.getElementById('tarea-id').value='';
+  document.getElementById('tarea-texto').value='';
+  document.getElementById('tarea-cat').value='General';
+  document.getElementById('tarea-prioridad').value='normal';
+  document.getElementById('tarea-fecha').value=_fechaChecklist;
+  document.getElementById('tarea-plantilla').checked=false;
+  const sel = document.getElementById('tarea-asignado');
+  let opts = '<option value="">Yo mismo</option><option value="todos">Todos (general)</option>';
+  opts += DB.usrs.filter(function(u){return u._uuid!==_sesion._uuid && u.activo!==false;}).map(function(u){return '<option value="'+u._uuid+'">'+u.nom+'</option>';}).join('');
+  sel.innerHTML = opts;
+  abrir('m-tarea');
+}
+
+async function guardarTarea(){
+  const texto = document.getElementById('tarea-texto').value.trim();
+  if(!texto){ toast('Escribí el texto de la tarea','a'); return; }
+  const asigVal = document.getElementById('tarea-asignado').value;
+  let asignadoA = null, asignadoNom = null;
+  if(asigVal==='todos'){ asignadoA=null; }
+  else if(asigVal===''){ asignadoA=_sesion._uuid; asignadoNom=_sesion.nom; }
+  else { asignadoA=asigVal; const u=DB.usrs.find(function(x){return x._uuid===asignadoA;}); asignadoNom=u?u.nom:'—'; }
+  const fecha = document.getElementById('tarea-fecha').value || _fechaChecklist;
+  const categoria = document.getElementById('tarea-cat').value;
+  const prioridad = document.getElementById('tarea-prioridad').value;
+  const esPlantilla = document.getElementById('tarea-plantilla').checked;
+  cerrar('m-tarea');
+  try {
+    const filas = await sbPost('tareas', {
+      negocio_id: NEGOCIO_ID, fecha, texto, categoria, prioridad,
+      asignado_a: asignadoA, asignado_nom: asignadoNom,
+      creado_por: _sesion._uuid, creado_por_nom: _sesion.nom,
+      hecha: false, es_plantilla: esPlantilla
+    });
+    TAREAS.push(_mapTareaSB(filas[0]));
+    guardarTareas();
+    renderChecklist();
+    toast('Tarea guardada','v');
+  } catch(e) {
+    console.warn('Error al guardar tarea en Supabase:', e);
+    toast('No se pudo guardar la tarea, revisá la conexión','a');
+  }
+}
+
+function abrirPlantillas(){
+  const plantillas = TAREAS.filter(function(t){return t.esPlantilla;});
+  const vistos = {};
+  const unicas = [];
+  for(let i=plantillas.length-1;i>=0;i--){
+    if(!vistos[plantillas[i].texto]){ vistos[plantillas[i].texto]=true; unicas.push(plantillas[i]); }
+  }
+  const cont = document.getElementById('lista-plantillas');
+  if(!unicas.length){ cont.innerHTML = '<div class="vacio"><div class="vi">📌</div><p>Todavía no guardaste ninguna plantilla</p></div>'; }
+  else {
+    cont.innerHTML = unicas.map(function(t){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0f0f0">' +
+        '<span>'+t.texto+' <span class="bdg bv2">'+t.categoria+'</span></span>' +
+        '<button class="btn bv bsm" onclick="insertarPlantilla(\''+t.id+'\')">➕ Insertar en '+_fechaChecklist+'</button>' +
+      '</div>';
+    }).join('');
+  }
+  abrir('m-plantillas');
+}
+
+async function insertarPlantilla(idPlantilla){
+  const base = TAREAS.find(function(t){return t.id===idPlantilla;});
+  if(!base) return;
+  cerrar('m-plantillas');
+  try {
+    const filas = await sbPost('tareas', {
+      negocio_id: NEGOCIO_ID, fecha:_fechaChecklist, texto:base.texto, categoria:base.categoria,
+      prioridad:base.prioridad, asignado_a:base.asignadoA, asignado_nom:base.asignadoNom,
+      creado_por:_sesion._uuid, creado_por_nom:_sesion.nom, hecha:false, es_plantilla:false
+    });
+    TAREAS.push(_mapTareaSB(filas[0]));
+    guardarTareas();
+    renderChecklist();
+    toast('Tarea agregada a este día','v');
+  } catch(e) {
+    console.warn('Error al insertar plantilla en Supabase:', e);
+    toast('No se pudo agregar la tarea, revisá la conexión','a');
+  }
+}
+
+function abrirCopiarDia(){
+  document.getElementById('copiar-fecha-destino').value='';
+  abrir('m-copiar-dia');
+}
+function atajoCopiar(dias){
+  const d = new Date(_fechaChecklist+'T00:00:00');
+  d.setDate(d.getDate()+dias);
+  document.getElementById('copiar-fecha-destino').value = d.toISOString().slice(0,10);
+}
+async function confirmarCopiarDia(){
+  const destino = document.getElementById('copiar-fecha-destino').value;
+  if(!destino){ toast('Elegí una fecha destino','a'); return; }
+  const deEsteDia = TAREAS.filter(function(t){return t.fecha===_fechaChecklist;});
+  if(!deEsteDia.length){ toast('No hay tareas en este día para copiar','a'); return; }
+  const filasNuevas = deEsteDia.map(function(t){
+    return {
+      negocio_id: NEGOCIO_ID, fecha:destino, texto:t.texto, categoria:t.categoria,
+      prioridad:t.prioridad, asignado_a:t.asignadoA, asignado_nom:t.asignadoNom,
+      creado_por:_sesion._uuid, creado_por_nom:_sesion.nom, hecha:false, es_plantilla:false
+    };
+  });
+  cerrar('m-copiar-dia');
+  try {
+    const insertadas = await sbPost('tareas', filasNuevas);
+    insertadas.forEach(function(f){ TAREAS.push(_mapTareaSB(f)); });
+    guardarTareas();
+    toast(insertadas.length+' tarea'+(insertadas.length!==1?'s':'')+' copiada'+(insertadas.length!==1?'s':'')+' a '+destino,'v');
+  } catch(e) {
+    console.warn('Error al copiar tareas en Supabase:', e);
+    toast('No se pudieron copiar las tareas, revisá la conexión','a');
+  }
+}
+
+// ───────── MENSAJES ─────────
+function renderMensajes(){
+  const btnMasivo = document.getElementById('btn-msj-masivo');
+  if(btnMasivo) btnMasivo.style.display = esAdmin() ? 'inline-flex' : 'none';
+  const cont = document.getElementById('lista-contactos');
+  const contactos = DB.usrs.filter(function(u){return u._uuid!==_sesion._uuid && u.activo!==false;});
+  cont.innerHTML = contactos.map(function(u){
+    const noLeidos = MENSAJES.filter(function(m){return m.de===u._uuid && m.para===_sesion._uuid && !m.leido;}).length;
+    const act = _contactoActivo===u._uuid ? 'style="background:var(--verde-suave)"' : '';
+    return '<div onclick="seleccionarContacto(\''+u._uuid+'\')" '+act+' style="padding:9px 10px;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">' +
+      '<span>'+u.nom+'</span>' +
+      (noLeidos?'<span class="bdg br2">'+noLeidos+'</span>':'') +
+    '</div>';
+  }).join('') || '<div class="vacio"><div class="vi">👥</div><p>No hay otros usuarios</p></div>';
+  if(_contactoActivo) renderConversacion();
+}
+
+async function seleccionarContacto(userId){
+  _contactoActivo = userId;
+  const noLeidos = MENSAJES.filter(function(m){ return m.de===userId && m.para===_sesion._uuid && !m.leido; });
+  noLeidos.forEach(function(m){ m.leido = true; });
+  renderConversacion();
+  renderMensajes();
+  guardarMensajes();
+  try {
+    await Promise.all(noLeidos.map(function(m){ return sbPatch('mensajes', m.id, { leido: true }); }));
+  } catch(e) {
+    console.warn('Error al marcar mensajes como leídos en Supabase:', e);
+  }
+}
+
+function renderConversacion(){
+  const u = DB.usrs.find(function(x){return x._uuid===_contactoActivo;});
+  document.getElementById('msg-titulo-conv').textContent = u ? ('Conversación con '+u.nom) : 'Elegí un contacto';
+  const conv = MENSAJES.filter(function(m){
+    return (m.de===_sesion._uuid && m.para===_contactoActivo) || (m.de===_contactoActivo && m.para===_sesion._uuid);
+  }).sort(function(a,b){return a.fecha.localeCompare(b.fecha);});
+  const cont = document.getElementById('lista-mensajes');
+  cont.innerHTML = conv.map(function(m){
+    const mio = m.de===_sesion._uuid;
+    return '<div style="display:flex;justify-content:'+(mio?'flex-end':'flex-start')+';margin-bottom:6px">' +
+      '<div style="max-width:75%;padding:7px 11px;border-radius:12px;background:'+(mio?'var(--verde)':'white')+';color:'+(mio?'white':'var(--texto)')+';box-shadow:var(--sombra2);font-size:13px">' +
+        (m.masivo?'<div style="font-size:9px;opacity:0.85;margin-bottom:2px">📢 Mensaje general</div>':'') +
+        m.texto +
+        '<div style="font-size:9px;opacity:0.7;margin-top:2px">'+new Date(m.fecha).toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})+'</div>' +
+      '</div>' +
+    '</div>';
+  }).join('') || '<div class="vacio" style="padding:14px"><p>Sin mensajes todavía</p></div>';
+  cont.scrollTop = cont.scrollHeight;
+}
+
+async function enviarMensaje(){
+  if(!_contactoActivo){ toast('Elegí primero un contacto','a'); return; }
+  const input = document.getElementById('msg-texto');
+  const texto = input.value.trim();
+  if(!texto) return;
+  input.value='';
+  try {
+    const filas = await sbPost('mensajes', { negocio_id: NEGOCIO_ID, de:_sesion._uuid, para:_contactoActivo, texto, leido:false, masivo:false });
+    MENSAJES.push(_mapMensajeSB(filas[0]));
+    guardarMensajes();
+    renderConversacion();
+    renderMensajes();
+  } catch(e) {
+    console.warn('Error al enviar mensaje a Supabase:', e);
+    toast('No se pudo enviar el mensaje, revisá la conexión','a');
+  }
+}
+
+function abrirMensajeMasivo(){
+  document.getElementById('msj-masivo-texto').value='';
+  abrir('m-msj-masivo');
+}
+
+async function enviarMensajeMasivo(){
+  const texto = document.getElementById('msj-masivo-texto').value.trim();
+  if(!texto){ toast('Escribí el mensaje','a'); return; }
+  const destinatarios = DB.usrs.filter(function(u){return u._uuid!==_sesion._uuid && u.activo!==false;});
+  if(!destinatarios.length){ toast('No hay otros usuarios cargados en el sistema','a'); return; }
+  cerrar('m-msj-masivo');
+  try {
+    const filas = destinatarios.map(function(u){ return { negocio_id: NEGOCIO_ID, de:_sesion._uuid, para:u._uuid, texto, leido:false, masivo:true }; });
+    const insertadas = await sbPost('mensajes', filas);
+    insertadas.forEach(function(f){ MENSAJES.push(_mapMensajeSB(f)); });
+    guardarMensajes();
+    renderMensajes();
+    toast('Mensaje enviado a '+destinatarios.length+' persona'+(destinatarios.length!==1?'s':''),'v');
+  } catch(e) {
+    console.warn('Error al enviar mensaje masivo a Supabase:', e);
+    toast('No se pudo enviar el mensaje, revisá la conexión','a');
+  }
+}
+
+// ───────── BADGE Y AVISO DE TAREAS/MENSAJES ─────────
+function actualizarBadgeTareas(){
+  const badge = document.getElementById('badge-tareas');
+  if(!badge || !_sesion) return;
+  const hoyStr = hoy();
+  const pend = TAREAS.filter(function(t){
+    return t.fecha===hoyStr && !t.hecha && (t.asignadoA===null || t.asignadoA===_sesion._uuid);
+  }).length;
+  const noLeidos = MENSAJES.filter(function(m){return m.para===_sesion._uuid && !m.leido;}).length;
+  const n = pend + noLeidos;
+  if(n>0){ badge.textContent=n; badge.style.display='inline-block'; } else { badge.style.display='none'; }
+  const subMsg = document.getElementById('badge-msg-sub');
+  if(subMsg){ if(noLeidos>0){subMsg.textContent=noLeidos;subMsg.style.display='inline-block';} else {subMsg.style.display='none';} }
+}
+
+// ═══════════════════════ HORARIOS Y FICHAJE ═══════════════════════
+let HORARIOS = [];
+let FICHAJES = [];
+let _fechaHorarios = hoy();
+let _subTabHorarios = 'plan';
+
+function _mapHorarioSB(h) {
+  return { id: h.id, usuarioId: h.usuario_id, usuarioNom: h.usuario_nom, fecha: h.fecha, horaInicio: h.hora_inicio, horaFin: h.hora_fin, notas: h.notas || '' };
+}
+function _mapFichajeSB(f) {
+  return { id: f.id, usuarioId: f.usuario_id, usuarioNom: f.usuario_nom, fecha: f.fecha, horaEntrada: f.hora_entrada, horaSalida: f.hora_salida };
+}
+
+async function cargarHorariosYFichajes() {
+  try {
+    const ng = `negocio_id=eq.${NEGOCIO_ID}`;
+    const [horSB, fichSB] = await Promise.all([
+      sbGet('horarios_empleados', `${ng}&order=fecha.asc`),
+      sbGet('fichajes', `${ng}&order=fecha.desc`)
+    ]);
+    HORARIOS = horSB.map(_mapHorarioSB);
+    FICHAJES = fichSB.map(_mapFichajeSB);
+  } catch(e) {
+    console.warn('No se pudieron cargar horarios/fichajes desde Supabase:', e);
+    HORARIOS = []; FICHAJES = [];
+  }
+}
+
+function renderHorarios(){
+  subTabHorarios(_subTabHorarios);
+}
+
+function subTabHorarios(tab){
+  _subTabHorarios = tab;
+  document.getElementById('panel-horplan').style.display = tab==='plan' ? '' : 'none';
+  document.getElementById('panel-fichaje').style.display = tab==='fichaje' ? '' : 'none';
+  document.getElementById('subtab-horplan-btn').className = 'btn '+(tab==='plan'?'bv':'bg')+' bsm';
+  document.getElementById('subtab-fichaje-btn').className = 'btn '+(tab==='fichaje'?'bv':'bg')+' bsm';
+  if(tab==='plan') renderPlanHorarios();
+  else renderPanelFichaje();
+}
+
+// ───────── PLANIFICACIÓN DE TURNOS ─────────
+function onFechaHorariosChange(){
+  _fechaHorarios = document.getElementById('hor-fecha').value || hoy();
+  renderPlanHorarios();
+}
+function cambiarFechaHorarios(dias){
+  const d = new Date(_fechaHorarios+'T00:00:00');
+  d.setDate(d.getDate()+dias);
+  _fechaHorarios = d.toISOString().slice(0,10);
+  renderPlanHorarios();
+}
+function irAHoyHorarios(){ _fechaHorarios = hoy(); renderPlanHorarios(); }
+
+function renderPlanHorarios(){
+  const fEl = document.getElementById('hor-fecha');
+  if(fEl) fEl.value = _fechaHorarios;
+  const diaEl = document.getElementById('hor-diasemana');
+  if(diaEl){
+    const d = new Date(_fechaHorarios+'T00:00:00');
+    diaEl.textContent = d.toLocaleDateString('es-AR',{weekday:'long', day:'numeric', month:'long'});
+  }
+  const nuevoWrap = document.getElementById('hor-btn-nuevo-wrap');
+  if(nuevoWrap) nuevoWrap.style.display = esAdmin() ? '' : 'none';
+  const filtro = document.getElementById('hor-filtro').value;
+  let turnosDia = HORARIOS.filter(function(h){ return h.fecha===_fechaHorarios; });
+  if(!esAdmin() || filtro==='mias'){
+    turnosDia = turnosDia.filter(function(h){ return h.usuarioId===_sesion._uuid; });
+  }
+  const cont = document.getElementById('lista-horarios');
+  if(!turnosDia.length){
+    cont.innerHTML = '<div class="vacio"><div class="vi">🕒</div><p>Sin turnos asignados para este día</p></div>';
+    return;
+  }
+  turnosDia.sort(function(a,b){ return (a.horaInicio||'').localeCompare(b.horaInicio||''); });
+  cont.innerHTML = turnosDia.map(function(h){
+    const puedeEditar = esAdmin();
+    return '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 4px;border-bottom:1px solid #f0f0f0">' +
+      '<div style="flex:1">' +
+        '<div><strong>'+(h.usuarioNom||'—')+'</strong></div>' +
+        '<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap">' +
+          '<span class="bdg bv2">🕒 '+(h.horaInicio||'--:--')+' a '+(h.horaFin||'--:--')+'</span>'+
+          (h.notas?'<span class="bdg bt2">📝 '+h.notas+'</span>':'')+
+        '</div>' +
+      '</div>' +
+      (puedeEditar?'<button class="btn bg bsm" onclick="editarHorario(\''+h.id+'\')">✏️</button> <button class="btn br bsm" onclick="borrarHorario(\''+h.id+'\')">🗑️</button>':'') +
+    '</div>';
+  }).join('');
+}
+
+function abrirNuevoHorario(){
+  if(!esAdmin()){ toast('Solo el administrador puede asignar turnos','a'); return; }
+  document.getElementById('hor-id').value='';
+  document.getElementById('hor-fecha-modal').value=_fechaHorarios;
+  document.getElementById('hor-fecha-hasta').value='';
+  document.getElementById('hor-fecha-label').textContent='Fecha desde';
+  document.getElementById('hor-fecha-hasta-wrap').style.display='';
+  document.getElementById('hor-inicio').value='';
+  document.getElementById('hor-fin').value='';
+  document.getElementById('hor-notas').value='';
+  const sel = document.getElementById('hor-empleado');
+  sel.innerHTML = DB.usrs.filter(function(u){return u.activo!==false;}).map(function(u){return '<option value="'+u._uuid+'">'+u.nom+'</option>';}).join('');
+  abrir('m-horario');
+}
+
+function editarHorario(id){
+  if(!esAdmin()) return;
+  const h = HORARIOS.find(function(x){return x.id===id;});
+  if(!h) return;
+  document.getElementById('hor-id').value = h.id;
+  document.getElementById('hor-fecha-modal').value = h.fecha;
+  document.getElementById('hor-fecha-hasta').value = '';
+  document.getElementById('hor-fecha-label').textContent='Fecha';
+  document.getElementById('hor-fecha-hasta-wrap').style.display='none';
+  document.getElementById('hor-inicio').value = h.horaInicio||'';
+  document.getElementById('hor-fin').value = h.horaFin||'';
+  document.getElementById('hor-notas').value = h.notas||'';
+  const sel = document.getElementById('hor-empleado');
+  sel.innerHTML = DB.usrs.filter(function(u){return u.activo!==false;}).map(function(u){return '<option value="'+u._uuid+'">'+u.nom+'</option>';}).join('');
+  sel.value = h.usuarioId;
+  abrir('m-horario');
+}
+
+function _rangoFechas(desde, hasta){
+  const dias = [];
+  const d = new Date(desde+'T00:00:00');
+  const fin = new Date(hasta+'T00:00:00');
+  while(d <= fin){
+    dias.push(d.toISOString().slice(0,10));
+    d.setDate(d.getDate()+1);
+  }
+  return dias;
+}
+
+async function guardarHorario(){
+  if(!esAdmin()){ toast('Solo el administrador puede asignar turnos','a'); return; }
+  const empId = document.getElementById('hor-empleado').value;
+  const emp = DB.usrs.find(function(u){return u._uuid===empId;});
+  if(!emp){ toast('Elegí un empleado','a'); return; }
+  const fecha = document.getElementById('hor-fecha-modal').value || _fechaHorarios;
+  const fechaHasta = document.getElementById('hor-fecha-hasta').value;
+  const horaInicio = document.getElementById('hor-inicio').value;
+  const horaFin = document.getElementById('hor-fin').value;
+  if(!horaInicio || !horaFin){ toast('Completá hora de inicio y fin','a'); return; }
+  const notas = document.getElementById('hor-notas').value.trim();
+  const id = document.getElementById('hor-id').value;
+
+  if(!id && fechaHasta && fechaHasta < fecha){
+    toast('La fecha "hasta" no puede ser anterior a la fecha "desde"','a');
+    return;
+  }
+  const dias = (!id && fechaHasta && fechaHasta > fecha) ? _rangoFechas(fecha, fechaHasta) : [fecha];
+  if(dias.length > 90){
+    toast('El rango es demasiado largo (máximo 90 días de una vez)','a');
+    return;
+  }
+
+  cerrar('m-horario');
+  try {
+    if(id){
+      await sbPatch('horarios_empleados', id, {
+        usuario_id: emp._uuid, usuario_nom: emp.nom, fecha, hora_inicio: horaInicio, hora_fin: horaFin, notas
+      });
+      const h = HORARIOS.find(function(x){return x.id===id;});
+      if(h){ h.usuarioId=emp._uuid; h.usuarioNom=emp.nom; h.fecha=fecha; h.horaInicio=horaInicio; h.horaFin=horaFin; h.notas=notas; }
+      toast('Turno actualizado','v');
+    } else {
+      const filas = await sbPost('horarios_empleados', dias.map(function(f){
+        return { negocio_id: NEGOCIO_ID, usuario_id: emp._uuid, usuario_nom: emp.nom,
+          fecha: f, hora_inicio: horaInicio, hora_fin: horaFin, notas };
+      }));
+      filas.forEach(function(fila){ HORARIOS.push(_mapHorarioSB(fila)); });
+      toast(dias.length>1 ? 'Turno asignado para '+dias.length+' días' : 'Turno asignado','v');
+    }
+    renderPlanHorarios();
+  } catch(e) {
+    console.warn('Error al guardar turno en Supabase:', e);
+    toast('No se pudo guardar el turno, revisá la conexión','a');
+  }
+}
+
+async function borrarHorario(id){
+  if(!esAdmin()) return;
+  if(!await confirmar('¿Borrás este turno?')) return;
+  HORARIOS = HORARIOS.filter(function(h){return h.id!==id;});
+  renderPlanHorarios();
+  try {
+    await sbDelete('horarios_empleados', id);
+  } catch(e) {
+    console.warn('Error al borrar turno en Supabase:', e);
+    toast('No se pudo borrar en el servidor, revisá la conexión','a');
+  }
+}
+
+// ───────── FICHAJE (entrada / salida) ─────────
+function renderPanelFichaje(){
+  renderFichajePropio();
+  const adminWrap = document.getElementById('ficha-admin-wrap');
+  if(adminWrap){
+    adminWrap.style.display = esAdmin() ? '' : 'none';
+    if(esAdmin()){
+      const fEl = document.getElementById('ficha-fecha');
+      if(fEl && !fEl.value) fEl.value = hoy();
+      renderFichajesEquipo();
+    }
+  }
+}
+
+function _fichajeDeHoy(usuarioId){
+  const h = hoy();
+  return FICHAJES.find(function(f){ return f.usuarioId===usuarioId && f.fecha===h; }) || null;
+}
+
+function _horasEntre(horaIni, horaFin){
+  if(!horaIni || !horaFin) return '';
+  const p1 = horaIni.split(':').map(Number);
+  const p2 = horaFin.split(':').map(Number);
+  let mins = (p2[0]*60+p2[1]) - (p1[0]*60+p1[1]);
+  if(mins < 0) mins += 24*60;
+  const hh = Math.floor(mins/60), mm = mins%60;
+  return hh+'h '+(mm<10?'0':'')+mm+'m';
+}
+
+function _horaAhora(){
+  const d = new Date();
+  return (d.getHours()<10?'0':'')+d.getHours()+':'+(d.getMinutes()<10?'0':'')+d.getMinutes();
+}
+
+function renderFichajePropio(){
+  const cont = document.getElementById('ficha-propia-estado');
+  if(!cont || !_sesion) return;
+  const f = _fichajeDeHoy(_sesion._uuid);
+  if(!f){
+    cont.innerHTML = '<button class="btn bv" onclick="marcarEntrada()">🟢 Marcar entrada</button>';
+  } else if(!f.horaSalida){
+    cont.innerHTML = '<div style="margin-bottom:8px">Entrada: <strong>'+f.horaEntrada+'</strong></div>' +
+      '<button class="btn br" onclick="marcarSalida()">🔴 Marcar salida</button>';
+  } else {
+    cont.innerHTML = '<div>Entrada: <strong>'+f.horaEntrada+'</strong> — Salida: <strong>'+f.horaSalida+'</strong></div>' +
+      '<div style="margin-top:4px;color:var(--verde);font-weight:600">Total: '+_horasEntre(f.horaEntrada,f.horaSalida)+'</div>';
+  }
+}
+
+async function marcarEntrada(){
+  const horaEntrada = _horaAhora();
+  const fecha = hoy();
+  try {
+    const filas = await sbPost('fichajes', {
+      negocio_id: NEGOCIO_ID, usuario_id: _sesion._uuid, usuario_nom: _sesion.nom,
+      fecha, hora_entrada: horaEntrada, hora_salida: null
+    });
+    FICHAJES.push(_mapFichajeSB(filas[0]));
+    renderFichajePropio();
+    toast('Entrada marcada: '+horaEntrada,'v');
+  } catch(e) {
+    console.warn('Error al marcar entrada en Supabase:', e);
+    toast('No se pudo marcar la entrada, revisá la conexión','a');
+  }
+}
+
+async function marcarSalida(){
+  const f = _fichajeDeHoy(_sesion._uuid);
+  if(!f) return;
+  const horaSalida = _horaAhora();
+  try {
+    await sbPatch('fichajes', f.id, { hora_salida: horaSalida });
+    f.horaSalida = horaSalida;
+    renderFichajePropio();
+    toast('Salida marcada: '+horaSalida,'v');
+  } catch(e) {
+    console.warn('Error al marcar salida en Supabase:', e);
+    toast('No se pudo marcar la salida, revisá la conexión','a');
+  }
+}
+
+function renderFichajesEquipo(){
+  const fEl = document.getElementById('ficha-fecha');
+  const fecha = (fEl && fEl.value) || hoy();
+  const tb = document.getElementById('tficha-equipo');
+  if(!tb) return;
+  const fichadas = FICHAJES.filter(function(f){ return f.fecha===fecha; });
+  if(!fichadas.length){
+    tb.innerHTML = '<tr><td colspan="4"><div class="vacio"><div class="vi">🕘</div><p>Sin fichajes para este día</p></div></td></tr>';
+    return;
+  }
+  tb.innerHTML = fichadas.map(function(f){
+    return '<tr><td>'+(f.usuarioNom||'—')+'</td><td>'+(f.horaEntrada||'—')+'</td><td>'+(f.horaSalida?f.horaSalida:'<span class="bdg ba2">En curso</span>')+'</td><td>'+(f.horaSalida?_horasEntre(f.horaEntrada,f.horaSalida):'—')+'</td></tr>';
+  }).join('');
 }
 
 function actualizarContadorPrecios() {
@@ -3598,6 +4563,15 @@ async function arrancarSistema() {
           renderInicio();
           document.getElementById('splash-screen').style.display = 'none';
           toast('✅ ' + _sesion.nom + ' — Datos cargados', 'v');
+          const nBajo = DB.arts.filter(function(a){return a.usastk!=='no'&&a.stk<=a.stkmin;}).length;
+          if(nBajo > 0) setTimeout(function(){ toast('⚠️ '+nBajo+' producto'+(nBajo!==1?'s':'')+' con stock bajo', 'a'); }, 1200);
+          await cargarTareasYMensajes();
+          await cargarHorariosYFichajes();
+          const hoyStr0 = hoy();
+          const nTareas = TAREAS.filter(function(t){return t.fecha===hoyStr0&&!t.hecha&&(t.asignadoA===null||t.asignadoA===_sesion._uuid);}).length;
+          const nMsj = MENSAJES.filter(function(m){return m.para===_sesion._uuid&&!m.leido;}).length;
+          if(nTareas>0) setTimeout(function(){ toast('📋 Tenés '+nTareas+' tarea'+(nTareas!==1?'s':'')+' pendiente'+(nTareas!==1?'s':'')+' para hoy', 'i'); }, 1800);
+          if(nMsj>0) setTimeout(function(){ toast('💬 Tenés '+nMsj+' mensaje'+(nMsj!==1?'s':'')+' sin leer', 'i'); }, 2400);
           return;
         } catch(e) {
           console.warn('Error cargando desde sesión guardada:', e);
@@ -3670,6 +4644,15 @@ doLogin = async function() {
     try { renderProvs && renderProvs(); } catch(e) {}
     try { renderCaja && renderCaja(); } catch(e) {}
     toast('✅ Bienvenido, ' + _sesion.nom + ' — ' + DB.arts.length + ' artículos cargados', 'v');
+    const nBajo = DB.arts.filter(function(a){return a.usastk!=='no'&&a.stk<=a.stkmin;}).length;
+    if(nBajo > 0) setTimeout(function(){ toast('⚠️ '+nBajo+' producto'+(nBajo!==1?'s':'')+' con stock bajo', 'a'); }, 1200);
+    await cargarTareasYMensajes();
+    await cargarHorariosYFichajes();
+    const hoyStr0 = hoy();
+    const nTareas = TAREAS.filter(function(t){return t.fecha===hoyStr0&&!t.hecha&&(t.asignadoA===null||t.asignadoA===_sesion._uuid);}).length;
+    const nMsj = MENSAJES.filter(function(m){return m.para===_sesion._uuid&&!m.leido;}).length;
+    if(nTareas>0) setTimeout(function(){ toast('📋 Tenés '+nTareas+' tarea'+(nTareas!==1?'s':'')+' pendiente'+(nTareas!==1?'s':'')+' para hoy', 'i'); }, 1800);
+    if(nMsj>0) setTimeout(function(){ toast('💬 Tenés '+nMsj+' mensaje'+(nMsj!==1?'s':'')+' sin leer', 'i'); }, 2400);
 
   } catch(e) {
     console.error('Error login:', e);
@@ -3731,6 +4714,34 @@ cobrarVenta = async function() {
   if (NEGOCIO_ID && DB.ventas.length) {
     const venta = DB.ventas[DB.ventas.length - 1];
     await _syncSupabase('venta_new', venta);
+  }
+};
+
+// Override guardarUsr para sync con Supabase
+const _guardarUsrOrig = guardarUsr;
+guardarUsr = async function() {
+  const eid = document.getElementById('usr-id').value;
+  const esNuevo = !eid;
+  _guardarUsrOrig();
+  if (NEGOCIO_ID) {
+    if (esNuevo) {
+      const usr = DB.usrs[DB.usrs.length - 1];
+      await _syncSupabase('usr_new', usr);
+    } else {
+      const usr = DB.usrs.find(u => u.id == eid);
+      if (usr) await _syncSupabase('usr_update', usr);
+    }
+  }
+};
+
+// Override delUsr para sync con Supabase
+const _delUsrOrig = delUsr;
+delUsr = async function(id) {
+  const usr = DB.usrs.find(u => u.id === id);
+  await _delUsrOrig(id);
+  // Solo sincronizar el borrado si realmente se borró (no se canceló ni era el admin id=1)
+  if (NEGOCIO_ID && usr && usr._uuid && !DB.usrs.find(u => u.id === id)) {
+    await _syncSupabase('usr_del', usr);
   }
 };
 
