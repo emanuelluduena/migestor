@@ -1535,6 +1535,19 @@ async function _syncSupabase(tipo, data) {
       if (res[0]) { data._uuid = res[0].id; _artNumtoUUID[data.id] = res[0].id; _artUUIDtoNum[res[0].id] = data.id; }
     } else if (tipo === 'art_del' && data._uuid) {
       await sbDelete('articulos', data._uuid);
+    } else if (tipo === 'turno_new') {
+      const res = await sbPost('turnos', {
+        negocio_id: NEGOCIO_ID,
+        fecha_apertura: data.fecha,
+        hora_apertura: data.apertura,
+        fondo_inicial: data.fondo || 0
+      });
+      if (res[0]) data._uuid = res[0].id;
+    } else if (tipo === 'turno_close' && data._uuid) {
+      await sbPatch('turnos', data._uuid, {
+        fecha_cierre: new Date().toISOString(),
+        observaciones: data.obs || null
+      });
     } else if (tipo === 'art_soft_del' && data._uuid) {
       await sbPatch('articulos', data._uuid, { eliminado_en: data.eliminadoEn });
     } else if (tipo === 'art_restore' && data._uuid) {
@@ -3018,7 +3031,7 @@ function abrirTurno(){
   const fondo=parseFloat(document.getElementById('caja-fondo').value)||0;
   const t={id:nid('caja'),fecha:hoy(),apertura:hora(),cierre:null,fondo};
   DB.turnos.push(t);
-  saveDB();renderCaja();
+  saveDB('turno_new', t);renderCaja();
   toast('Turno abierto','v');
 }
 
@@ -3124,7 +3137,7 @@ function confirmarCierreTurno(){
   ta.cierre=hora();
   ta.obs=document.getElementById('arqueo-obs').value.trim();
   ta.arqueo=arqueo;
-  saveDB();cerrar('m-arqueo');renderCaja();
+  saveDB('turno_close', ta);cerrar('m-arqueo');renderCaja();
   toast('Turno cerrado','v');
 }
 function regMovCaja(){
