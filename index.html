@@ -5222,6 +5222,7 @@ async function arrancarSistema() {
           DB = await cargarDesdeSupabase(s._negocioId);
           _sesion = DB.usrs.find(u => u.usr === s.usr) || s;
           _sesion._negocioId = s._negocioId;
+          iniciarHeartbeatSesion();
           document.getElementById('login-screen').style.display = 'none';
           document.getElementById('usr-badge-nom').textContent = _sesion.nom;
           aplicarPermisosMenues();
@@ -5247,6 +5248,42 @@ async function arrancarSistema() {
     } catch(e) {}
   }
   mostrarLogin();
+}
+
+// ═══ Límite de usuarios simultáneos por negocio ═══
+let _heartbeatInterval = null;
+
+async function enviarHeartbeatSesion() {
+  if (!_sesion || !NEGOCIO_ID) return;
+  try {
+    await fetch(`${SB_URL}/rest/v1/sesiones_activas?on_conflict=negocio_id,usuario_id`, {
+      method: 'POST',
+      headers: {
+        'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`,
+        'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        negocio_id: NEGOCIO_ID, usuario_id: _sesion._uuid,
+        usuario_nom: _sesion.nom, ultimo_ping: new Date().toISOString()
+      })
+    });
+  } catch(e) { /* si falla el heartbeat no interrumpimos al usuario */ }
+}
+
+function iniciarHeartbeatSesion() {
+  enviarHeartbeatSesion();
+  if (_heartbeatInterval) clearInterval(_heartbeatInterval);
+  _heartbeatInterval = setInterval(enviarHeartbeatSesion, 90000);
+}
+
+async function borrarSesionActiva() {
+  if (!_sesion || !NEGOCIO_ID) return;
+  try {
+    await fetch(`${SB_URL}/rest/v1/sesiones_activas?negocio_id=eq.${NEGOCIO_ID}&usuario_id=eq.${_sesion._uuid}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` }
+    });
+  } catch(e) {}
 }
 
 // Override doLogin para conectar con Supabase
@@ -5288,6 +5325,23 @@ doLogin = async function() {
     const usrSB = usrsSB[0];
     negocioId = usrSB.negocio_id;
 
+    // Verificar límite de usuarios simultáneos del plan
+    const negActual = await sbGet('negocios', `id=eq.${negocioId}`);
+    const limiteUsuarios = negActual.length ? negActual[0].limite_usuarios : null;
+    if (limiteUsuarios) {
+      const haceCincoMin = new Date(Date.now() - 5*60*1000).toISOString();
+      const activas = await sbGet('sesiones_activas', `negocio_id=eq.${negocioId}&ultimo_ping=gte.${encodeURIComponent(haceCincoMin)}`);
+      const conectados = new Set(activas.map(function(s){return s.usuario_id;}));
+      conectados.delete(usrSB.id);
+      if (conectados.size >= limiteUsuarios) {
+        loginErr.style.display = 'block';
+        loginErr.textContent = 'Límite de usuarios alcanzado (' + limiteUsuarios + '/' + limiteUsuarios + ' conectados). Cerrá sesión en otro dispositivo o contactanos para ampliar tu plan.';
+        if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'Ingresar'; }
+        document.getElementById('login-pass').value = '';
+        return;
+      }
+    }
+
     // Cargar todos los datos del negocio
     toast('Cargando datos del negocio...', 'i');
     DB = await cargarDesdeSupabase(negocioId);
@@ -5299,6 +5353,7 @@ doLogin = async function() {
     _sesion._negocioId = negocioId;
 
     localStorage.setItem('sesionActiva', JSON.stringify(_sesion));
+    iniciarHeartbeatSesion();
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('usr-badge-nom').textContent = _sesion.nom;
     aplicarPermisosMenues();
@@ -5331,6 +5386,8 @@ doLogin = async function() {
 // Override doLogout
 const _doLogoutOriginal = doLogout;
 doLogout = function() {
+  if (_heartbeatInterval) clearInterval(_heartbeatInterval);
+  borrarSesionActiva();
   _sesion = null;
   NEGOCIO_ID = null;
   localStorage.removeItem('sesionActiva');
