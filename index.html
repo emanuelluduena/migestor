@@ -178,6 +178,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
 </style>
 </head>
 <body>
+  <div id="conn-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:100000;text-align:center;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;padding:8px 12px;color:white;"></div>
   <div id="splash-screen" style="position:fixed;inset:0;background:linear-gradient(135deg,#1e293b 0%,#334155 100%);z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
   <div style="font-size:64px;">🌿</div>
   <div style="font-family:'Fraunces',serif;font-size:24px;color:white;font-weight:700;">Almacén Natural</div>
@@ -1528,7 +1529,63 @@ async function cargarDesdeSupabase(negId) {
 }
 
 // Guarda cambios específicos en Supabase (llamado desde saveDB)
-async function _syncSupabase(tipo, data) {
+// ═══════════════════════ COLA DE SINCRONIZACIÓN OFFLINE ═══════════════════════
+let _colaSyncPendiente = [];
+let _reintentoInterval = null;
+
+function actualizarBannerConexion() {
+  const banner = document.getElementById('conn-banner');
+  if (!banner) return;
+  if (!navigator.onLine) {
+    const n = _colaSyncPendiente.length;
+    banner.style.background = '#e74c3c';
+    banner.style.display = 'block';
+    banner.textContent = '🔴 Sin conexión' + (n ? ' — ' + n + ' cambio' + (n!==1?'s':'') + ' pendiente' + (n!==1?'s':'') + ' de sincronizar' : ' — podés seguir trabajando, se sincroniza al volver internet');
+  } else if (_colaSyncPendiente.length) {
+    const n = _colaSyncPendiente.length;
+    banner.style.background = '#f59e0b';
+    banner.style.display = 'block';
+    banner.textContent = '🟡 Sincronizando ' + n + ' cambio' + (n!==1?'s':'') + ' pendiente' + (n!==1?'s':'') + '...';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function encolarSyncFallido(tipo, data) {
+  _colaSyncPendiente.push({ tipo: tipo, data: data, ts: Date.now() });
+  actualizarBannerConexion();
+  if (!_reintentoInterval) {
+    _reintentoInterval = setInterval(procesarColaSync, 20000);
+  }
+}
+
+async function procesarColaSync() {
+  if (!navigator.onLine || !_colaSyncPendiente.length) return;
+  const pendientes = _colaSyncPendiente.slice();
+  let exitosos = 0;
+  for (const item of pendientes) {
+    try {
+      await _syncSupabase(item.tipo, item.data, true);
+      const idx = _colaSyncPendiente.indexOf(item);
+      if (idx !== -1) _colaSyncPendiente.splice(idx, 1);
+      exitosos++;
+    } catch(e) { /* sigue sin conexión o falló de nuevo, se queda en la cola */ }
+  }
+  actualizarBannerConexion();
+  if (exitosos > 0) {
+    toast('✅ Reconectado — ' + exitosos + ' cambio' + (exitosos!==1?'s':'') + ' sincronizado' + (exitosos!==1?'s':''), 'v');
+  }
+  if (!_colaSyncPendiente.length && _reintentoInterval) {
+    clearInterval(_reintentoInterval);
+    _reintentoInterval = null;
+  }
+}
+
+window.addEventListener('online', procesarColaSync);
+window.addEventListener('offline', actualizarBannerConexion);
+actualizarBannerConexion();
+
+async function _syncSupabase(tipo, data, esReintento=false) {
   if (!NEGOCIO_ID) return;
   try {
     if (tipo === 'art_update' && data._uuid) {
@@ -1628,9 +1685,13 @@ async function _syncSupabase(tipo, data) {
     } else if (tipo === 'usr_del' && data._uuid) {
       await sbDelete('usuarios', data._uuid);
     }
-  } catch(e) {
+ } catch(e) {
     console.warn('Supabase sync error:', tipo, e.message);
-    // No bloquear la UI por errores de sync
+    if (!esReintento) {
+      encolarSyncFallido(tipo, data);
+    } else {
+      throw e; // avisarle a procesarColaSync que este item sigue fallando
+    }
   }
 }
 
