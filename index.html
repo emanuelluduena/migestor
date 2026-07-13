@@ -1337,6 +1337,8 @@ let _artUUIDtoNum = {}; // uuid -> num
 let _artNumtoUUID = {}; // num -> uuid
 let _provUUIDtoNum = {};
 let _provNumtoUUID = {};
+let _cliUUIDtoNum = {};
+let _cliNumtoUUID = {};
 
 async function sbGet(table, params='') {
   const r = await fetch(`${SB_URL}/rest/v1/${table}?${params}`, {
@@ -1383,7 +1385,20 @@ async function sbDelete(table, id) {
 async function cargarDesdeSupabase(negId) {
   NEGOCIO_ID = negId;
   const ng = `negocio_id=eq.${negId}`;
-  
+
+  // Cargar configuración del negocio desde su propia fila (nombre, slogan, dirección, etc.)
+  let config = {};
+  try {
+    const negSB = await sbGet('negocios', `id=eq.${negId}`);
+    if (negSB[0]) {
+      const n = negSB[0];
+      config = {
+        nombre: n.nombre || '', slogan: n.slogan || '', dir: n.direccion || '',
+        tel: n.telefono || '', email: n.email || '', cuit: n.cuit || '', logo: n.logo_url || null
+      };
+    }
+  } catch(e) { console.warn('Error cargando configuración del negocio:', e); }
+
   // Cargar proveedores
   const provsSB = await sbGet('proveedores', `${ng}&order=codigo.asc`);
   let numProv = 1;
@@ -1392,6 +1407,16 @@ async function cargarDesdeSupabase(negId) {
     _provUUIDtoNum[p.id] = num;
     _provNumtoUUID[num] = p.id;
     return { id: num, _uuid: p.id, nom: p.nombre || '', cuit: p.cuit || '', tel: p.telefono || '', email: p.email || '', dir: p.direccion || '', rub: p.rubro || '', not: p.notas || '' };
+  });
+
+  // Cargar clientes
+  const clisSB = await sbGet('clientes', `${ng}&order=nombre.asc`);
+  let numCli = 1;
+  const clis = clisSB.map(c => {
+    const num = numCli++;
+    _cliUUIDtoNum[c.id] = num;
+    _cliNumtoUUID[num] = c.id;
+    return { id: num, _uuid: c.id, nom: c.nombre || '', dni: c.dni || '', tel: c.telefono || '', email: c.email || '', dir: c.direccion || '', lista: c.lista_precio || 'lista1' };
   });
 
   // Cargar artículos en lotes para superar el límite de 1000 (solo activos, no papelera)
@@ -1476,10 +1501,13 @@ async function cargarDesdeSupabase(negId) {
     // caja_movimientos puede o no existir
     const cajaSB = await sbGet('caja_movimientos', `${ng}&order=created_at.desc&limit=200`);
     let numCaja = cajaSB.length;
-    caja = cajaSB.reverse().map(c => ({
-      id: numCaja--, fecha: c.fecha || hoy(), hora: c.hora || '',
-      tipo: c.tipo || 'entrada', desc: c.descripcion || '', monto: c.monto || 0
-    }));
+    caja = cajaSB.reverse().map(c => {
+      const fh = c.created_at ? c.created_at.split('T') : [hoy(), ''];
+      return {
+        id: numCaja--, _uuid: c.id, fecha: fh[0] || hoy(), hora: c.hora || '',
+        tipo: c.tipo || 'entrada', desc: c.descripcion || '', monto: c.monto || 0
+      };
+    });
   } catch(e) { caja = []; }
 
   // Cargar turnos
@@ -1521,10 +1549,39 @@ async function cargarDesdeSupabase(negId) {
     }
   } catch(e) { console.warn('Error cargando papelera de artículos:', e); }
 
+  // Cargar compras (últimas 200) con sus items
+  let comps = [];
+  try {
+    const compsSB = await sbGet('compras', `${ng}&order=fecha.desc&limit=200`);
+    let itemsPorCompra = {};
+    if (compsSB.length) {
+      const compIds = compsSB.map(c => c.id);
+      const itemsSB = await sbGet('compra_items', `compra_id=in.(${compIds.join(',')})`);
+      itemsSB.forEach(it => {
+        if (!itemsPorCompra[it.compra_id]) itemsPorCompra[it.compra_id] = [];
+        const numArt = it.articulo_id ? _artUUIDtoNum[it.articulo_id] : null;
+        itemsPorCompra[it.compra_id].push({
+          aid: numArt || null, nom: it.articulo_nombre || '',
+          cant: it.cantidad || 0, cos: it.costo_unitario || 0, sub: it.subtotal || 0
+        });
+      });
+    }
+    let numComp = compsSB.length;
+    comps = compsSB.reverse().map(c => ({
+      id: numComp--, _uuid: c.id,
+      fecha: c.fecha,
+      provid: c.proveedor_id ? _provUUIDtoNum[c.proveedor_id] : null,
+      provnom: c.proveedor_nombre || '-',
+      nro: c.nro_factura || '',
+      total: c.total || 0,
+      items: itemsPorCompra[c.id] || []
+    }));
+  } catch(e) { console.warn('Error cargando compras:', e); comps = []; }
+
   return {
     arts, provs, usrs, ventas, gastos, caja, turnos,
-    clis: [], comps: [], bitacora: [], config: {}, artsPapelera,
-    ids: { art: arts.length+1, prov: provs.length+1, cli: 1, usr: usrs.length+1, comp: 1, venta: ventas.length+1, gasto: gastos.length+1, caja: caja.length+1, turno: turnos.length+1 }
+    clis, comps, bitacora: [], config, artsPapelera,
+    ids: { art: arts.length+1, prov: provs.length+1, cli: clis.length+1, usr: usrs.length+1, comp: comps.length+1, venta: ventas.length+1, gasto: gastos.length+1, caja: caja.length+1, turno: turnos.length+1 }
   };
 }
 
@@ -1684,6 +1741,115 @@ async function _syncSupabase(tipo, data, esReintento=false) {
       });
     } else if (tipo === 'usr_del' && data._uuid) {
       await sbDelete('usuarios', data._uuid);
+    } else if (tipo === 'compra_new') {
+      const provUUID = data.provid ? _provNumtoUUID[data.provid] : null;
+      const res = await sbPost('compras', {
+        negocio_id: NEGOCIO_ID, fecha: data.fecha, proveedor_id: provUUID,
+        proveedor_nombre: data.provnom, nro_factura: data.nro || null, total: data.total,
+        usuario_id: _sesion ? _sesion._uuid : null
+      });
+      if (res[0]) {
+        data._uuid = res[0].id;
+        const items = data.items.map(it => ({
+          compra_id: res[0].id,
+          articulo_id: it.aid ? (_artNumtoUUID[it.aid] || null) : null,
+          articulo_nombre: it.nom, cantidad: it.cant,
+          costo_unitario: it.cos, subtotal: it.sub
+        }));
+        if (items.length) await sbPost('compra_items', items);
+      }
+    } else if (tipo === 'compra_del' && data._uuid) {
+      await sbDelete('compras', data._uuid);
+    } else if (tipo === 'tarea_new') {
+      const res = await sbPost('tareas', {
+        negocio_id: NEGOCIO_ID, fecha: data.fecha, texto: data.texto,
+        categoria: data.categoria, prioridad: data.prioridad,
+        asignado_a: data.asignadoA, asignado_nom: data.asignadoNom,
+        creado_por: data.creadoPor, creado_por_nom: data.creadoPorNom,
+        hecha: false, es_plantilla: data.esPlantilla
+      });
+      if (res[0]) data.id = res[0].id; // reemplaza el id local temporal por el UUID real
+    } else if (tipo === 'mensaje_new') {
+      const res = await sbPost('mensajes', {
+        negocio_id: NEGOCIO_ID, de: data.de, para: data.para,
+        texto: data.texto, leido: false, masivo: false
+      });
+      if (res[0]) data.id = res[0].id;
+    } else if (tipo === 'mensaje_masivo_new') {
+      const filas = data.map(m => ({
+        negocio_id: NEGOCIO_ID, de: m.de, para: m.para, texto: m.texto, leido: false, masivo: true
+      }));
+      const res = await sbPost('mensajes', filas);
+      if (res && res.length === data.length) data.forEach((m, i) => { m.id = res[i].id; });
+    } else if (tipo === 'cli_new') {
+      const res = await sbPost('clientes', {
+        negocio_id: NEGOCIO_ID, nombre: data.nom, dni: data.dni || null,
+        telefono: data.tel || null, email: data.email || null,
+        direccion: data.dir || null, lista_precio: data.lista || 'lista1'
+      });
+      if (res[0]) data._uuid = res[0].id;
+    } else if (tipo === 'cli_update' && data._uuid) {
+      await sbPatch('clientes', data._uuid, {
+        nombre: data.nom, dni: data.dni || null, telefono: data.tel || null,
+        email: data.email || null, direccion: data.dir || null, lista_precio: data.lista || 'lista1'
+      });
+    } else if (tipo === 'cli_del' && data._uuid) {
+      await sbDelete('clientes', data._uuid);
+    } else if (tipo === 'config_update') {
+      await sbPatch('negocios', NEGOCIO_ID, {
+        nombre: data.nombre, slogan: data.slogan, direccion: data.dir,
+        telefono: data.tel, email: data.email, cuit: data.cuit
+      });
+    } else if (tipo === 'gasto_del' && data._uuid) {
+      await sbDelete('gastos', data._uuid);
+    } else if (tipo === 'nomconfig_new') {
+      const res = await sbPost('nomina_config', {
+        negocio_id: NEGOCIO_ID, usuario_id: data.usuarioId, tipo_contrato: data.tipoContrato,
+        sueldo: data.sueldo, valor_hora: data.valorHora
+      });
+      if (res[0]) data.id = res[0].id;
+    } else if (tipo === 'nomconfig_update' && data.id) {
+      await sbPatch('nomina_config', data.id, {
+        tipo_contrato: data.tipoContrato, sueldo: data.sueldo, valor_hora: data.valorHora
+      });
+    } else if (tipo === 'nompago_new') {
+      const res = await sbPost('nomina_pagos', {
+        negocio_id: NEGOCIO_ID, usuario_id: data.usuarioId, usuario_nom: data.usuarioNom,
+        fecha: data.fecha, periodo: data.periodo, tipo: data.tipo, monto: data.monto,
+        metodo: data.metodo, notas: data.notas, gasto_id: data.gastoId, caja_id: data.cajaId
+      });
+      if (res[0]) data.id = res[0].id;
+    } else if (tipo === 'nompago_del' && data.id) {
+      await sbDelete('nomina_pagos', data.id);
+    } else if (tipo === 'horario_new') {
+      const filas = data.map(h => ({
+        negocio_id: NEGOCIO_ID, usuario_id: h.usuarioId, usuario_nom: h.usuarioNom,
+        fecha: h.fecha, hora_inicio: h.horaInicio, hora_fin: h.horaFin, notas: h.notas
+      }));
+      const res = await sbPost('horarios_empleados', filas);
+      if (res && res.length === data.length) data.forEach((h, i) => { h.id = res[i].id; });
+    } else if (tipo === 'horario_update' && data.id) {
+      await sbPatch('horarios_empleados', data.id, {
+        usuario_id: data.usuarioId, usuario_nom: data.usuarioNom, fecha: data.fecha,
+        hora_inicio: data.horaInicio, hora_fin: data.horaFin, notas: data.notas
+      });
+    } else if (tipo === 'horario_del' && data.id) {
+      await sbDelete('horarios_empleados', data.id);
+    } else if (tipo === 'fichaje_entrada_new') {
+      const res = await sbPost('fichajes', {
+        negocio_id: NEGOCIO_ID, usuario_id: data.usuarioId, usuario_nom: data.usuarioNom,
+        fecha: data.fecha, hora_entrada: data.horaEntrada, hora_salida: data.horaSalida || null
+      });
+      if (res[0]) data.id = res[0].id;
+    } else if (tipo === 'fichaje_salida_update' && data.id) {
+      await sbPatch('fichajes', data.id, { hora_salida: data.horaSalida });
+    } else if (tipo === 'caja_new') {
+      const t = (data.turnoId != null) ? DB.turnos.find(x => x.id === data.turnoId) : null;
+      const res = await sbPost('caja_movimientos', {
+        negocio_id: NEGOCIO_ID, turno_id: t ? t._uuid : null, usuario_id: _sesion ? _sesion._uuid : null,
+        hora: data.hora, tipo: data.tipo, descripcion: data.desc, monto: data.monto
+      });
+      if (res[0]) data._uuid = res[0].id;
     }
  } catch(e) {
     console.warn('Supabase sync error:', tipo, e.message);
@@ -2497,7 +2663,7 @@ function filtProv(){guardarFiltroInput('bprov');const q=document.getElementById(
 function abrirProv(){document.getElementById('prov-id').value='';document.getElementById('mprov-tit').textContent='Nuevo Proveedor';['nom','cuit','tel','email','dir','rub','not'].forEach(f=>{const el=document.getElementById('prov-'+f);if(el)el.value='';});abrir('m-prov');}
 function editProv(id){const p=DB.provs.find(x=>x.id===id);if(!p)return;document.getElementById('prov-id').value=id;document.getElementById('mprov-tit').textContent='Editar Proveedor';document.getElementById('prov-nom').value=p.nom;document.getElementById('prov-cuit').value=p.cuit||'';document.getElementById('prov-tel').value=p.tel||'';document.getElementById('prov-email').value=p.email||'';document.getElementById('prov-dir').value=p.dir||'';document.getElementById('prov-rub').value=p.rub||'';document.getElementById('prov-not').value=p.not||'';abrir('m-prov');}
 function guardarProv(){const nom=document.getElementById('prov-nom').value.trim();if(!nom){toast('Ingresá el nombre','a');return;}const d={nom,cuit:document.getElementById('prov-cuit').value.trim(),tel:document.getElementById('prov-tel').value.trim(),email:document.getElementById('prov-email').value.trim(),dir:document.getElementById('prov-dir').value.trim(),rub:document.getElementById('prov-rub').value.trim(),not:document.getElementById('prov-not').value.trim()};const eid=document.getElementById('prov-id').value;if(eid){const i=DB.provs.findIndex(x=>x.id==eid);if(i>=0)DB.provs[i]={...DB.provs[i],...d};}else{d.id=nid('prov');DB.provs.push(d);}saveDB();cerrar('m-prov');renderProvs();}
-async function delProv(id){if(!await confirmar('¿Eliminás este proveedor?'))return;DB.provs=DB.provs.filter(p=>p.id!==id);saveDB();renderProvs();}
+async function delProv(id){if(!await confirmar('¿Eliminás este proveedor?'))return;const prov=DB.provs.find(p=>p.id===id);DB.provs=DB.provs.filter(p=>p.id!==id);saveDB();renderProvs();if(NEGOCIO_ID&&prov&&prov._uuid)await _syncSupabase('prov_del',prov);}
 
 // ═══════════════════════ CLIENTES ═══════════════════════
 const lnom={'lista1':'Lista 1','lista2':'Lista 2','lista3':'Lista 3','mayor':'Mayor'};
@@ -2510,7 +2676,7 @@ function filtCli(){guardarFiltroInput('bcli');const q=document.getElementById('b
 function abrirCli(){document.getElementById('cli-id').value='';document.getElementById('mcli-tit').textContent='Nuevo Cliente';['nom','dni','tel','email','dir'].forEach(f=>document.getElementById('cli-'+f).value='');document.getElementById('cli-lista').value='lista1';abrir('m-cli');}
 function editCli(id){const c=DB.clis.find(x=>x.id===id);if(!c)return;document.getElementById('cli-id').value=id;document.getElementById('mcli-tit').textContent='Editar Cliente';document.getElementById('cli-nom').value=c.nom;document.getElementById('cli-dni').value=c.dni||'';document.getElementById('cli-tel').value=c.tel||'';document.getElementById('cli-email').value=c.email||'';document.getElementById('cli-dir').value=c.dir||'';document.getElementById('cli-lista').value=c.lista||'lista1';abrir('m-cli');}
 function guardarCli(){const nom=document.getElementById('cli-nom').value.trim();if(!nom){toast('Ingresá el nombre','a');return;}const d={nom,dni:document.getElementById('cli-dni').value.trim(),tel:document.getElementById('cli-tel').value.trim(),email:document.getElementById('cli-email').value.trim(),dir:document.getElementById('cli-dir').value.trim(),lista:document.getElementById('cli-lista').value};const eid=document.getElementById('cli-id').value;if(eid){const i=DB.clis.findIndex(x=>x.id==eid);if(i>=0)DB.clis[i]={...DB.clis[i],...d};}else{d.id=nid('cli');DB.clis.push(d);}saveDB();cerrar('m-cli');renderClis();}
-async function delCli(id){if(!await confirmar('¿Eliminás este cliente?'))return;DB.clis=DB.clis.filter(c=>c.id!==id);saveDB();renderClis();}
+async function delCli(id){if(!await confirmar('¿Eliminás este cliente?'))return;const cli=DB.clis.find(c=>c.id===id);DB.clis=DB.clis.filter(c=>c.id!==id);saveDB();renderClis();if(NEGOCIO_ID&&cli&&cli._uuid)await _syncSupabase('cli_del',cli);}
 
 // ═══════════════════════ USUARIOS ═══════════════════════
 function renderUsrs(){const tb=document.getElementById('tusr');tb.innerHTML=DB.usrs.map(u=>'<tr><td>'+u.id+'</td><td>'+u.nom+'</td><td><code>'+u.usr+'</code></td><td><span class="bdg '+(u.rol==='Administrador'?'bt2':'bv2')+'">'+u.rol+'</span></td><td><span class="bdg '+(u.activo!==false?'bv2':'br2')+'">'+(u.activo!==false?'Activo':'Inactivo')+'</span></td><td><button class="btn bg bsm" onclick="editUsr('+u.id+')">✏️</button>'+(u.id!==1?' <button class="btn br bsm" onclick="delUsr('+u.id+')">🗑️</button>':'')+'</td></tr>').join('');}
@@ -2563,8 +2729,8 @@ function abrirCompra(){itemsComp=[];document.getElementById('cfecha').value=hoy(
 function addItemComp(){const aid=parseInt(document.getElementById('cart').value);const cant=parseFloat(document.getElementById('ccant').value)||1;const cos=parseFloat(document.getElementById('ccosto').value)||0;const art=DB.arts.find(a=>a.id===aid);if(!art)return;itemsComp.push({aid,nom:art.nom,cant,cos,sub:cant*cos});renderItemsComp();}
 function renderItemsComp(){const tb=document.getElementById('titemscomp');let tot=0;if(!itemsComp.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:12px;color:#999">Agregá artículos</td></tr>';}else{tb.innerHTML=itemsComp.map((it,i)=>{tot+=it.sub;return '<tr><td>'+it.nom+'</td><td>'+it.cant+'</td><td>'+fmt(it.cos)+'</td><td>'+fmt(it.sub)+'</td><td><button class="btn br bsm" onclick="quitItemComp('+i+')">✕</button></td></tr>';}).join('');}document.getElementById('ctotal').textContent=fmt(tot);}
 function quitItemComp(i){itemsComp.splice(i,1);renderItemsComp();}
-function guardarCompra(){if(!itemsComp.length){toast('Agregá artículos','i');return;}const pid=parseInt(document.getElementById('cprov').value);const prov=DB.provs.find(p=>p.id===pid);const tot=itemsComp.reduce((s,i)=>s+i.sub,0);const comp={id:nid('comp'),fecha:document.getElementById('cfecha').value,provid:pid,provnom:prov?prov.nom:'-',nro:document.getElementById('cnro').value,items:[...itemsComp],total:tot};itemsComp.forEach(it=>{const art=DB.arts.find(a=>a.id===it.aid);if(art){art.stk=(art.stk||0)+it.cant;art.cos=it.cos;}});DB.comps.push(comp);saveDB();cerrar('m-compra');renderComps();}
-async function delComp(id){if(!await confirmar('¿Eliminás esta compra?'))return;DB.comps=DB.comps.filter(c=>c.id!==id);saveDB();renderComps();}
+async function guardarCompra(){if(!itemsComp.length){toast('Agregá artículos','i');return;}const pid=parseInt(document.getElementById('cprov').value);const prov=DB.provs.find(p=>p.id===pid);const tot=itemsComp.reduce((s,i)=>s+i.sub,0);const comp={id:nid('comp'),fecha:document.getElementById('cfecha').value,provid:pid,provnom:prov?prov.nom:'-',nro:document.getElementById('cnro').value,items:[...itemsComp],total:tot};const artsAfectados=[];itemsComp.forEach(it=>{const art=DB.arts.find(a=>a.id===it.aid);if(art){art.stk=(art.stk||0)+it.cant;art.cos=it.cos;artsAfectados.push(art);}});DB.comps.push(comp);saveDB();cerrar('m-compra');renderComps();if(NEGOCIO_ID){artsAfectados.forEach(art=>{if(art._uuid)_syncSupabase('art_update',art);});await _syncSupabase('compra_new',comp);}}
+async function delComp(id){if(!await confirmar('¿Eliminás esta compra?'))return;const comp=DB.comps.find(c=>c.id===id);DB.comps=DB.comps.filter(c=>c.id!==id);saveDB();renderComps();if(NEGOCIO_ID&&comp&&comp._uuid)await _syncSupabase('compra_del',comp);}
 
 // ═══════════════════════ VENTAS ═══════════════════════
 let ticket=[];
@@ -3229,8 +3395,10 @@ function regMovCaja(){
   const monto=parseFloat(document.getElementById('cajm').value);
   const desc=document.getElementById('cajd').value.trim();
   if(isNaN(monto)||monto<=0){toast('Monto inválido','a');return;}
-  DB.caja.push({id:nid('caja'),fecha:hoy(),hora:hora(),tipo,desc:desc||tipo,monto,turnoId:ta.id});
+  const mov={id:nid('caja'),fecha:hoy(),hora:hora(),tipo,desc:desc||tipo,monto,turnoId:ta.id};
+  DB.caja.push(mov);
   saveDB();document.getElementById('cajm').value='';document.getElementById('cajd').value='';renderCaja();
+  if(NEGOCIO_ID) _syncSupabase('caja_new', mov);
 }
 
 // ESTADISTICAS
@@ -3461,14 +3629,20 @@ function regGasto(){
   const desc=(provSel?provSel+' - ':'')+document.getElementById('gdesc').value.trim();
   const g={id:nid('gasto'),fecha,cat:document.getElementById('gcat').value,desc,met,monto};
   DB.gastos.push(g);
- if(met==='efectivo'){const ta=turnoActivo();DB.caja.push({id:nid('caja'),fecha,hora:hora(),tipo:'salida',desc:'Gasto: '+g.cat,monto,turnoId:ta?ta.id:null});}
+  let mov=null;
+ if(met==='efectivo'){const ta=turnoActivo();mov={id:nid('caja'),fecha,hora:hora(),tipo:'salida',desc:'Gasto: '+g.cat,monto,turnoId:ta?ta.id:null};DB.caja.push(mov);}
   saveDB();document.getElementById('gmonto').value='';document.getElementById('gdesc').value='';renderGastos();
+  if(NEGOCIO_ID){
+    _syncSupabase('gasto_new', g);
+    if(mov) _syncSupabase('caja_new', mov);
+  }
 }
 async function delGasto(id){
   if(!await confirmar('¿Eliminás este gasto?'))return;
   const g=DB.gastos.find(function(x){return x.id===id;});
   if(g)regBita('gasto_borrado','Gasto borrado: '+g.cat+' - '+(g.desc||'')+ ' del '+g.fecha,g);
   DB.gastos=DB.gastos.filter(function(g){return g.id!==id;});saveDB();renderGastos();
+  if(NEGOCIO_ID&&g&&g._uuid)await _syncSupabase('gasto_del',g);
 }
 
 // CONTABILIDAD
@@ -4204,20 +4378,22 @@ async function guardarTarea(){
   const prioridad = document.getElementById('tarea-prioridad').value;
   const esPlantilla = document.getElementById('tarea-plantilla').checked;
   cerrar('m-tarea');
-  try {
-    const filas = await sbPost('tareas', {
-      negocio_id: NEGOCIO_ID, fecha, texto, categoria, prioridad,
-      asignado_a: asignadoA, asignado_nom: asignadoNom,
-      creado_por: _sesion._uuid, creado_por_nom: _sesion.nom,
-      hecha: false, es_plantilla: esPlantilla
-    });
-    TAREAS.push(_mapTareaSB(filas[0]));
-    guardarTareas();
-    renderChecklist();
-    toast('Tarea guardada','v');
-  } catch(e) {
-    console.warn('Error al guardar tarea en Supabase:', e);
-    toast('No se pudo guardar la tarea, revisá la conexión','a');
+  // Guardado local primero: la tarea existe en pantalla aunque falle la sync
+  const tarea = {
+    id: 'local-' + Date.now(), fecha, texto, categoria, prioridad,
+    asignadoA, asignadoNom, creadoPor: _sesion._uuid, creadoPorNom: _sesion.nom,
+    hecha: false, hechaPor: null, hechaNom: null, hechaEn: null, esPlantilla
+  };
+  TAREAS.push(tarea);
+  guardarTareas();
+  renderChecklist();
+  toast('Tarea guardada','v');
+  if (NEGOCIO_ID) {
+    try {
+      await _syncSupabase('tarea_new', tarea);
+    } catch(e) {
+      console.warn('Error al guardar tarea en Supabase:', e);
+    }
   }
 }
 
@@ -4351,15 +4527,17 @@ async function enviarMensaje(){
   const texto = input.value.trim();
   if(!texto) return;
   input.value='';
-  try {
-    const filas = await sbPost('mensajes', { negocio_id: NEGOCIO_ID, de:_sesion._uuid, para:_contactoActivo, texto, leido:false, masivo:false });
-    MENSAJES.push(_mapMensajeSB(filas[0]));
-    guardarMensajes();
-    renderConversacion();
-    renderMensajes();
-  } catch(e) {
-    console.warn('Error al enviar mensaje a Supabase:', e);
-    toast('No se pudo enviar el mensaje, revisá la conexión','a');
+  const msg = {
+    id: 'local-' + Date.now(), de: _sesion._uuid, para: _contactoActivo,
+    texto, leido: false, masivo: false, fecha: new Date().toISOString()
+  };
+  MENSAJES.push(msg);
+  guardarMensajes();
+  renderConversacion();
+  renderMensajes();
+  if (NEGOCIO_ID) {
+    try { await _syncSupabase('mensaje_new', msg); }
+    catch(e) { console.warn('Error al enviar mensaje a Supabase:', e); }
   }
 }
 
@@ -4374,16 +4552,16 @@ async function enviarMensajeMasivo(){
   const destinatarios = DB.usrs.filter(function(u){return u._uuid!==_sesion._uuid && u.activo!==false;});
   if(!destinatarios.length){ toast('No hay otros usuarios cargados en el sistema','a'); return; }
   cerrar('m-msj-masivo');
-  try {
-    const filas = destinatarios.map(function(u){ return { negocio_id: NEGOCIO_ID, de:_sesion._uuid, para:u._uuid, texto, leido:false, masivo:true }; });
-    const insertadas = await sbPost('mensajes', filas);
-    insertadas.forEach(function(f){ MENSAJES.push(_mapMensajeSB(f)); });
-    guardarMensajes();
-    renderMensajes();
-    toast('Mensaje enviado a '+destinatarios.length+' persona'+(destinatarios.length!==1?'s':''),'v');
-  } catch(e) {
-    console.warn('Error al enviar mensaje masivo a Supabase:', e);
-    toast('No se pudo enviar el mensaje, revisá la conexión','a');
+  const msgs = destinatarios.map(function(u, i){
+    return { id: 'local-' + Date.now() + '-' + i, de: _sesion._uuid, para: u._uuid, texto, leido: false, masivo: true, fecha: new Date().toISOString() };
+  });
+  msgs.forEach(function(m){ MENSAJES.push(m); });
+  guardarMensajes();
+  renderMensajes();
+  toast('Mensaje enviado a '+destinatarios.length+' persona'+(destinatarios.length!==1?'s':''),'v');
+  if (NEGOCIO_ID) {
+    try { await _syncSupabase('mensaje_masivo_new', msgs); }
+    catch(e) { console.warn('Error al enviar mensaje masivo a Supabase:', e); }
   }
 }
 
@@ -4593,26 +4771,27 @@ async function guardarHorario(){
   }
 
   cerrar('m-horario');
-  try {
-    if(id){
-      await sbPatch('horarios_empleados', id, {
-        usuario_id: emp._uuid, usuario_nom: emp.nom, fecha, hora_inicio: horaInicio, hora_fin: horaFin, notas
-      });
-      const h = HORARIOS.find(function(x){return x.id===id;});
-      if(h){ h.usuarioId=emp._uuid; h.usuarioNom=emp.nom; h.fecha=fecha; h.horaInicio=horaInicio; h.horaFin=horaFin; h.notas=notas; }
-      toast('Turno actualizado','v');
-    } else {
-      const filas = await sbPost('horarios_empleados', dias.map(function(f){
-        return { negocio_id: NEGOCIO_ID, usuario_id: emp._uuid, usuario_nom: emp.nom,
-          fecha: f, hora_inicio: horaInicio, hora_fin: horaFin, notas };
-      }));
-      filas.forEach(function(fila){ HORARIOS.push(_mapHorarioSB(fila)); });
-      toast(dias.length>1 ? 'Turno asignado para '+dias.length+' días' : 'Turno asignado','v');
-    }
+  if(id){
+    const h = HORARIOS.find(function(x){return x.id===id;});
+    if(h){ h.usuarioId=emp._uuid; h.usuarioNom=emp.nom; h.fecha=fecha; h.horaInicio=horaInicio; h.horaFin=horaFin; h.notas=notas; }
     renderPlanHorarios();
-  } catch(e) {
-    console.warn('Error al guardar turno en Supabase:', e);
-    toast('No se pudo guardar el turno, revisá la conexión','a');
+    toast('Turno actualizado','v');
+    if (NEGOCIO_ID && h && !String(id).startsWith('local-')) {
+      try { await _syncSupabase('horario_update', h); }
+      catch(e) { console.warn('Error al guardar turno en Supabase:', e); }
+    }
+  } else {
+    const nuevos = dias.map(function(f, i){
+      return { id: 'local-'+Date.now()+'-'+i, usuarioId: emp._uuid, usuarioNom: emp.nom,
+        fecha: f, horaInicio, horaFin, notas };
+    });
+    nuevos.forEach(function(h){ HORARIOS.push(h); });
+    renderPlanHorarios();
+    toast(dias.length>1 ? 'Turno asignado para '+dias.length+' días' : 'Turno asignado','v');
+    if (NEGOCIO_ID) {
+      try { await _syncSupabase('horario_new', nuevos); }
+      catch(e) { console.warn('Error al guardar turno en Supabase:', e); }
+    }
   }
 }
 
@@ -4621,11 +4800,9 @@ async function borrarHorario(id){
   if(!await confirmar('¿Borrás este turno?')) return;
   HORARIOS = HORARIOS.filter(function(h){return h.id!==id;});
   renderPlanHorarios();
-  try {
-    await sbDelete('horarios_empleados', id);
-  } catch(e) {
-    console.warn('Error al borrar turno en Supabase:', e);
-    toast('No se pudo borrar en el servidor, revisá la conexión','a');
+  if (NEGOCIO_ID && id && !String(id).startsWith('local-')) {
+    try { await _syncSupabase('horario_del', {id}); }
+    catch(e) { console.warn('Error al borrar turno en Supabase:', e); }
   }
 }
 
@@ -4681,18 +4858,14 @@ function renderFichajePropio(){
 async function marcarEntrada(){
   const horaEntrada = _horaAhora();
   const fecha = hoy();
-  try {
-    const filas = await sbPost('fichajes', {
-      negocio_id: NEGOCIO_ID, usuario_id: _sesion._uuid, usuario_nom: _sesion.nom,
-      fecha, hora_entrada: horaEntrada, hora_salida: null
-    });
-    FICHAJES.push(_mapFichajeSB(filas[0]));
-    renderFichajePropio();
-    if(typeof renderFichajesEquipo === 'function') renderFichajesEquipo();
-    toast('Entrada marcada: '+horaEntrada,'v');
-  } catch(e) {
-    console.warn('Error al marcar entrada en Supabase:', e);
-    toast('No se pudo marcar la entrada, revisá la conexión','a');
+  const f = { id: 'local-'+Date.now(), usuarioId: _sesion._uuid, usuarioNom: _sesion.nom, fecha, horaEntrada, horaSalida: null };
+  FICHAJES.push(f);
+  renderFichajePropio();
+  if(typeof renderFichajesEquipo === 'function') renderFichajesEquipo();
+  toast('Entrada marcada: '+horaEntrada,'v');
+  if (NEGOCIO_ID) {
+    try { await _syncSupabase('fichaje_entrada_new', f); }
+    catch(e) { console.warn('Error al marcar entrada en Supabase:', e); }
   }
 }
 
@@ -4700,16 +4873,16 @@ async function marcarSalida(){
   const f = _fichajeDeHoy(_sesion._uuid);
   if(!f) return;
   const horaSalida = _horaAhora();
-  try {
-    await sbPatch('fichajes', f.id, { hora_salida: horaSalida });
-    f.horaSalida = horaSalida;
-    renderFichajePropio();
-    if(typeof renderFichajesEquipo === 'function') renderFichajesEquipo();
-    toast('Salida marcada: '+horaSalida,'v');
-  } catch(e) {
-    console.warn('Error al marcar salida en Supabase:', e);
-    toast('No se pudo marcar la salida, revisá la conexión','a');
+  f.horaSalida = horaSalida;
+  renderFichajePropio();
+  if(typeof renderFichajesEquipo === 'function') renderFichajesEquipo();
+  toast('Salida marcada: '+horaSalida,'v');
+  if (NEGOCIO_ID && !String(f.id).startsWith('local-')) {
+    try { await _syncSupabase('fichaje_salida_update', f); }
+    catch(e) { console.warn('Error al marcar salida en Supabase:', e); }
   }
+  // Si la entrada todavía no sincronizó (sigue en cola), no hace falta hacer nada más acá:
+  // cuando esa entrada se reintente, ya va a incluir esta hora de salida (ver fichaje_entrada_new).
 }
 
 function abrirFicharOtro(){
@@ -4760,34 +4933,28 @@ function abrirModalFicharEmpleado(usuarioId, usuarioNom){
 async function ficharEntradaPara(usuarioId, usuarioNom){
   const horaEntrada = _horaAhora();
   const fecha = hoy();
-  try {
-    const filas = await sbPost('fichajes', {
-      negocio_id: NEGOCIO_ID, usuario_id: usuarioId, usuario_nom: usuarioNom,
-      fecha, hora_entrada: horaEntrada, hora_salida: null
-    });
-    FICHAJES.push(_mapFichajeSB(filas[0]));
-    toast('✅ Entrada marcada para '+usuarioNom+' a las '+horaEntrada,'v');
-    renderFichajesEquipo();
-    abrirModalFicharEmpleado(usuarioId, usuarioNom);
-  } catch(e) {
-    console.warn('Error al marcar entrada:', e);
-    toast('No se pudo marcar la entrada','a');
+  const f = { id: 'local-'+Date.now(), usuarioId, usuarioNom, fecha, horaEntrada, horaSalida: null };
+  FICHAJES.push(f);
+  toast('✅ Entrada marcada para '+usuarioNom+' a las '+horaEntrada,'v');
+  renderFichajesEquipo();
+  abrirModalFicharEmpleado(usuarioId, usuarioNom);
+  if (NEGOCIO_ID) {
+    try { await _syncSupabase('fichaje_entrada_new', f); }
+    catch(e) { console.warn('Error al marcar entrada:', e); }
   }
 }
 
 async function ficharSalidaPara(usuarioId, fichajeId){
   const horaSalida = _horaAhora();
-  try {
-    await sbPatch('fichajes', fichajeId, { hora_salida: horaSalida });
-    const f = FICHAJES.find(x => x.id === fichajeId);
-    if(f) f.horaSalida = horaSalida;
-    const usuarioNom = f?.usuarioNom || 'Empleado';
-    toast('✅ Salida marcada para '+usuarioNom+' a las '+horaSalida,'v');
-    renderFichajesEquipo();
-    abrirModalFicharEmpleado(usuarioId, usuarioNom);
-  } catch(e) {
-    console.warn('Error al marcar salida:', e);
-    toast('No se pudo marcar la salida','a');
+  const f = FICHAJES.find(x => x.id === fichajeId);
+  if(f) f.horaSalida = horaSalida;
+  const usuarioNom = f?.usuarioNom || 'Empleado';
+  toast('✅ Salida marcada para '+usuarioNom+' a las '+horaSalida,'v');
+  renderFichajesEquipo();
+  abrirModalFicharEmpleado(usuarioId, usuarioNom);
+  if (NEGOCIO_ID && f && !String(f.id).startsWith('local-')) {
+    try { await _syncSupabase('fichaje_salida_update', f); }
+    catch(e) { console.warn('Error al marcar salida:', e); }
   }
 }
 
@@ -4931,20 +5098,24 @@ async function guardarConfigNomina(){
   const valorHora = parseFloat(document.getElementById('nomc-valorhora').value) || 0;
   cerrar('m-nomconfig');
   const existente = NOMINA_CONFIG.find(function(x){ return x.usuarioId===uuid; });
-  try {
-    if(existente && existente.id){
-      await sbPatch('nomina_config', existente.id, { tipo_contrato:tipo, sueldo:sueldo, valor_hora:valorHora });
-      existente.tipoContrato = tipo; existente.sueldo = sueldo; existente.valorHora = valorHora;
-    } else {
-      const filas = await sbPost('nomina_config', { negocio_id:NEGOCIO_ID, usuario_id:uuid, tipo_contrato:tipo, sueldo:sueldo, valor_hora:valorHora });
-      NOMINA_CONFIG.push(_mapNomConfigSB(filas[0]));
-    }
+  if(existente && existente.id){
+    existente.tipoContrato = tipo; existente.sueldo = sueldo; existente.valorHora = valorHora;
+    renderNomina();
     toast('Configuración guardada','v');
-  } catch(e){
-    console.warn('Error al guardar nomina_config:', e);
-    toast('No se pudo guardar (¿corriste el SQL de nomina_config?)','a');
+    if (NEGOCIO_ID && !String(existente.id).startsWith('local-')) {
+      try { await _syncSupabase('nomconfig_update', existente); }
+      catch(e) { console.warn('Error al guardar nomina_config:', e); }
+    }
+  } else {
+    const nuevo = { id:'local-'+Date.now(), usuarioId:uuid, tipoContrato:tipo, sueldo, valorHora };
+    NOMINA_CONFIG.push(nuevo);
+    renderNomina();
+    toast('Configuración guardada','v');
+    if (NEGOCIO_ID) {
+      try { await _syncSupabase('nomconfig_new', nuevo); }
+      catch(e) { console.warn('Error al guardar nomina_config:', e); }
+    }
   }
-  renderNomina();
 }
 
 function abrirPagoNomina(uuid, tipo){
@@ -4982,28 +5153,29 @@ async function guardarPagoNomina(){
   const g = { id:nid('gasto'), fecha:fecha, cat:'Sueldos', desc:etiqueta, met:metodo, monto:monto };
   DB.gastos.push(g);
   let cajaId = null;
+  let mov = null;
   if(metodo==='efectivo'){
     const ta = turnoActivo();
     cajaId = nid('caja');
-    DB.caja.push({ id:cajaId, fecha:fecha, hora:hora(), tipo:'salida', desc:'Sueldos: '+u.nom+(tipo==='anticipo'?' (anticipo)':''), monto:monto, turnoId: ta?ta.id:null });
+    mov = { id:cajaId, fecha:fecha, hora:hora(), tipo:'salida', desc:'Sueldos: '+u.nom+(tipo==='anticipo'?' (anticipo)':''), monto:monto, turnoId: ta?ta.id:null };
+    DB.caja.push(mov);
   }
   saveDB();
 
-  // 2) Registro del pago en Supabase (multi-dispositivo)
-  try {
-    const filas = await sbPost('nomina_pagos', { negocio_id:NEGOCIO_ID, usuario_id:uuid, usuario_nom:u.nom, fecha:fecha, periodo:periodo, tipo:tipo, monto:monto, metodo:metodo, notas:notas, gasto_id:g.id, caja_id:cajaId });
-    NOMINA_PAGOS.push(_mapNomPagoSB(filas[0]));
-    toast((tipo==='anticipo'?'Anticipo':'Liquidación')+' registrada','v');
-  } catch(e){
-    console.warn('Error al guardar nomina_pagos:', e);
-    // El gasto ya quedó registrado localmente; guardamos un registro local para que la UI lo refleje esta sesión
-    NOMINA_PAGOS.push({ id:'local-'+Date.now(), usuarioId:uuid, usuarioNom:u.nom, fecha:fecha, periodo:periodo, tipo:tipo, monto:monto, metodo:metodo, notas:notas, gastoId:g.id, cajaId:cajaId });
-    toast('Se registró en Gastos, pero no en la nube (¿corriste el SQL de nomina_pagos?)','a');
-  }
-
+  // 2) Registro del pago (local primero, nunca se pierde)
+  const pago = { id:'local-'+Date.now(), usuarioId:uuid, usuarioNom:u.nom, fecha:fecha, periodo:periodo, tipo:tipo, monto:monto, metodo:metodo, notas:notas, gastoId:g.id, cajaId:cajaId };
+  NOMINA_PAGOS.push(pago);
   renderNomina();
   if(typeof renderGastos==='function') renderGastos();
   if(typeof renderCaja==='function') renderCaja();
+  toast((tipo==='anticipo'?'Anticipo':'Liquidación')+' registrada','v');
+
+  if (NEGOCIO_ID) {
+    // El gasto y el movimiento de caja reutilizan los mismos tipos de sync que el resto de la app
+    try { await _syncSupabase('gasto_new', g); } catch(e) { console.warn('Error sincronizando gasto de sueldo:', e); }
+    if (mov) { try { await _syncSupabase('caja_new', mov); } catch(e) { console.warn('Error sincronizando caja de sueldo:', e); } }
+    try { await _syncSupabase('nompago_new', pago); } catch(e) { console.warn('Error al guardar nomina_pagos:', e); }
+  }
 }
 
 async function borrarPagoNomina(id){
@@ -5018,11 +5190,9 @@ async function borrarPagoNomina(id){
   renderNomina();
   if(typeof renderGastos==='function') renderGastos();
   if(typeof renderCaja==='function') renderCaja();
-  try {
-    if(String(id).indexOf('local-')!==0) await sbDelete('nomina_pagos', id);
-  } catch(e){
-    console.warn('Error al borrar nomina_pagos:', e);
-    toast('No se pudo borrar en la nube, revisá la conexión','a');
+  if (NEGOCIO_ID && String(id).indexOf('local-')!==0) {
+    try { await _syncSupabase('nompago_del', {id}); }
+    catch(e) { console.warn('Error al borrar nomina_pagos:', e); }
   }
 }
 
@@ -5188,7 +5358,7 @@ function eliminarCategoria(cat) {
   toast('Categoría eliminada','v');
 }
 
-function guardarConfig() {
+async function guardarConfig() {
   if(!DB.config) DB.config = {};
   DB.config.nombre = document.getElementById('cfg-nombre').value.trim();
   DB.config.slogan = document.getElementById('cfg-slogan').value.trim();
@@ -5199,6 +5369,10 @@ function guardarConfig() {
   saveDB();
   aplicarConfig();
   toast('Configuración guardada', 'v');
+  if (NEGOCIO_ID) {
+    try { await _syncSupabase('config_update', DB.config); }
+    catch(e) { console.warn('Error sincronizando configuración del negocio:', e); }
+  }
 }
 
 function cargarLogo(input) {
@@ -5358,23 +5532,11 @@ doLogin = async function() {
   if (loginBtn) { loginBtn.disabled = true; loginBtn.textContent = 'Conectando...'; }
 
   try {
-    // Detectar el negocio según el dominio actual
-    const dominioActual = window.location.hostname + window.location.pathname.split('/').slice(0,2).join('/');
-    const negociosSB = await sbGet('negocios', `dominio=eq.${encodeURIComponent(dominioActual)}&activo=eq.true`);
-    
-    let negocioId = null;
-    if (negociosSB.length) {
-      negocioId = negociosSB[0].id;
-    }
+    // Buscar usuario por usuario+contraseña en todo el sistema.
+    // Es seguro porque el username es único a nivel global (restricción única en la base de datos) —
+    // dos negocios nunca pueden tener el mismo nombre de usuario, así que esta búsqueda nunca es ambigua.
+    const usrsSB = await sbGet('usuarios', `username=eq.${encodeURIComponent(usr)}&password_hash=eq.${encodeURIComponent(pass)}&activo=eq.true`);
 
-    // Buscar usuario filtrando por negocio
-    let usrsSB = [];
-    if (negocioId) {
-      usrsSB = await sbGet('usuarios', `username=eq.${encodeURIComponent(usr)}&password_hash=eq.${encodeURIComponent(pass)}&negocio_id=eq.${negocioId}&activo=eq.true&order=created_at.desc`);
-    } else {
-      usrsSB = await sbGet('usuarios', `username=eq.${encodeURIComponent(usr)}&password_hash=eq.${encodeURIComponent(pass)}&activo=eq.true&order=created_at.desc`);
-    }
-    
     if (!usrsSB.length) {
       loginErr.style.display = 'block';
       loginErr.textContent = 'Usuario o contraseña incorrectos';
@@ -5384,7 +5546,7 @@ doLogin = async function() {
     }
 
     const usrSB = usrsSB[0];
-    negocioId = usrSB.negocio_id;
+    let negocioId = usrSB.negocio_id;
 
     // Verificar límite de usuarios simultáneos del plan
     const negActual = await sbGet('negocios', `id=eq.${negocioId}`);
@@ -5491,6 +5653,23 @@ guardarProv = async function() {
   }
 };
 
+// Override guardarCli para sync con Supabase
+const _guardarCliOrig = guardarCli;
+guardarCli = async function() {
+  const eid = document.getElementById('cli-id').value;
+  const esNuevo = !eid;
+  _guardarCliOrig();
+  if (NEGOCIO_ID) {
+    if (esNuevo) {
+      const cli = DB.clis[DB.clis.length - 1];
+      await _syncSupabase('cli_new', cli);
+    } else {
+      const cli = DB.clis.find(c => c.id == eid);
+      if (cli) await _syncSupabase('cli_update', cli);
+    }
+  }
+};
+
 // Override cobrarVenta para sync con Supabase
 const _cobrarVentaOrig = cobrarVenta;
 cobrarVenta = async function() {
@@ -5528,18 +5707,6 @@ delUsr = async function(id) {
     await _syncSupabase('usr_del', usr);
   }
 };
-
-// Override guardarGasto si existe
-if (typeof guardarGasto === 'function') {
-  const _guardarGastoOrig = guardarGasto;
-  guardarGasto = async function() {
-    _guardarGastoOrig();
-    if (NEGOCIO_ID && DB.gastos.length) {
-      const gasto = DB.gastos[DB.gastos.length - 1];
-      await _syncSupabase('gasto_new', gasto);
-    }
-  };
-}
 
 // Arrancar
 arrancarSistema();
