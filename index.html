@@ -1213,7 +1213,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   <div class="fgrid">
     <div class="fg"><label>Nombre Completo</label><input type="text" id="usr-nom"></div>
     <div class="fg"><label>Usuario (login)</label><input type="text" id="usr-usr"></div>
-    <div class="fg"><label>Contraseña</label><input type="password" id="usr-pass"></div>
+    <div class="fg"><label>Contraseña</label><input type="password" id="usr-pass" placeholder="Dejar en blanco para no cambiarla"></div>
     <div class="fg"><label>Rol</label><select id="usr-rol" onchange="aplicarPermisosPorRol()"><option>Administrador</option><option>Vendedor</option><option>Cajero</option><option>Solo Consulta</option></select></div>
   </div>
   <div style="margin-top:16px;border-top:1px solid #eee;padding-top:14px;">
@@ -1379,6 +1379,20 @@ async function sbDelete(table, id) {
     method: 'DELETE',
     headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` }
   });
+}
+
+async function sbRpc(fn, params={}) {
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(params)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  const texto = await r.text();
+  return texto ? JSON.parse(texto) : null; // set_password_usuario no devuelve cuerpo (204)
 }
 
 // Carga todos los datos del negocio desde Supabase y los convierte al formato DB local
@@ -1733,12 +1747,19 @@ async function _syncSupabase(tipo, data, esReintento=false) {
         negocio_id: NEGOCIO_ID, nombre: data.nom, username: data.usr,
         password_hash: data.pass, rol: data.rol, activo: data.activo !== false
       });
-      if (res[0]) data._uuid = res[0].id;
+      if (res[0]) {
+        data._uuid = res[0].id;
+        // Re-hashear de inmediato: el insert de arriba deja el password en texto plano un instante,
+        // esta llamada lo reemplaza por el hash real (crypt/bcrypt) antes de que quede persistido así.
+        await sbRpc('set_password_usuario', { p_user_id: res[0].id, p_password: data.pass });
+      }
     } else if (tipo === 'usr_update' && data._uuid) {
       await sbPatch('usuarios', data._uuid, {
-        nombre: data.nom, username: data.usr, password_hash: data.pass,
+        nombre: data.nom, username: data.usr,
         rol: data.rol, activo: data.activo !== false
       });
+      // Solo tocar la contraseña si el admin realmente escribió una nueva (campo no vacío).
+      if (data.pass) await sbRpc('set_password_usuario', { p_user_id: data._uuid, p_password: data.pass });
     } else if (tipo === 'usr_del' && data._uuid) {
       await sbDelete('usuarios', data._uuid);
     } else if (tipo === 'compra_new') {
@@ -2694,7 +2715,7 @@ function editUsr(id){
   document.getElementById('musr-tit').textContent='Editar Usuario';
   document.getElementById('usr-nom').value=u.nom;
   document.getElementById('usr-usr').value=u.usr;
-  document.getElementById('usr-pass').value=u.pass||'';
+  document.getElementById('usr-pass').value='';
   document.getElementById('usr-rol').value=u.rol;
   abrirPermisosMod(getPermsUsuario(u));
   abrir('m-usr');
@@ -2702,9 +2723,12 @@ function editUsr(id){
 function guardarUsr(){
   const nom=document.getElementById('usr-nom').value.trim(),usr=document.getElementById('usr-usr').value.trim();
   if(!nom||!usr){toast('Completá nombre y usuario','a');return;}
-  const perms=leerPermisosForm();
-  const d={nom,usr,pass:document.getElementById('usr-pass').value,rol:document.getElementById('usr-rol').value,activo:true,perms:perms};
+  const passInput=document.getElementById('usr-pass').value;
   const eid=document.getElementById('usr-id').value;
+  if(!eid && !passInput){toast('Completá una contraseña para el nuevo usuario','a');return;}
+  const perms=leerPermisosForm();
+  const d={nom,usr,rol:document.getElementById('usr-rol').value,activo:true,perms:perms};
+  if(passInput) d.pass=passInput;
   if(eid){const i=DB.usrs.findIndex(x=>x.id==eid);if(i>=0)DB.usrs[i]={...DB.usrs[i],...d};}
   else{d.id=nid('usr');DB.usrs.push(d);}
   saveDB();cerrar('m-usr');renderUsrs();
@@ -5532,10 +5556,10 @@ doLogin = async function() {
   if (loginBtn) { loginBtn.disabled = true; loginBtn.textContent = 'Conectando...'; }
 
   try {
-    // Buscar usuario por usuario+contraseña en todo el sistema.
+    // Buscar usuario por usuario+contraseña en todo el sistema, vía RPC (compara con hash real).
     // Es seguro porque el username es único a nivel global (restricción única en la base de datos) —
     // dos negocios nunca pueden tener el mismo nombre de usuario, así que esta búsqueda nunca es ambigua.
-    const usrsSB = await sbGet('usuarios', `username=eq.${encodeURIComponent(usr)}&password_hash=eq.${encodeURIComponent(pass)}&activo=eq.true`);
+    const usrsSB = await sbRpc('login_usuario', { p_username: usr, p_password: pass });
 
     if (!usrsSB.length) {
       loginErr.style.display = 'block';
