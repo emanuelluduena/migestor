@@ -5647,10 +5647,12 @@ const _guardarArtOrig = guardarArt;
 guardarArt = async function() {
   const eid = document.getElementById('art-id').value;
   const esNuevo = !eid;
+  const largoAntes = DB.arts.length;
   _guardarArtOrig();
   // Sync con Supabase
   if (NEGOCIO_ID) {
     if (esNuevo) {
+      if (DB.arts.length === largoAntes) return; // la validación original falló, no se agregó nada: no sincronizar
       const art = DB.arts[DB.arts.length - 1];
       await _syncSupabase('art_new', art);
     } else {
@@ -5665,9 +5667,11 @@ const _guardarProvOrig = guardarProv;
 guardarProv = async function() {
   const eid = document.getElementById('prov-id').value;
   const esNuevo = !eid;
+  const largoAntes = DB.provs.length;
   _guardarProvOrig();
   if (NEGOCIO_ID) {
     if (esNuevo) {
+      if (DB.provs.length === largoAntes) return;
       const prov = DB.provs[DB.provs.length - 1];
       await _syncSupabase('prov_new', prov);
     } else {
@@ -5682,9 +5686,11 @@ const _guardarCliOrig = guardarCli;
 guardarCli = async function() {
   const eid = document.getElementById('cli-id').value;
   const esNuevo = !eid;
+  const largoAntes = DB.clis.length;
   _guardarCliOrig();
   if (NEGOCIO_ID) {
     if (esNuevo) {
+      if (DB.clis.length === largoAntes) return;
       const cli = DB.clis[DB.clis.length - 1];
       await _syncSupabase('cli_new', cli);
     } else {
@@ -5697,8 +5703,9 @@ guardarCli = async function() {
 // Override cobrarVenta para sync con Supabase
 const _cobrarVentaOrig = cobrarVenta;
 cobrarVenta = async function() {
+  const largoAntes = DB.ventas.length;
   _cobrarVentaOrig();
-  if (NEGOCIO_ID && DB.ventas.length) {
+  if (NEGOCIO_ID && DB.ventas.length > largoAntes) {
     const venta = DB.ventas[DB.ventas.length - 1];
     await _syncSupabase('venta_new', venta);
   }
@@ -5709,9 +5716,11 @@ const _guardarUsrOrig = guardarUsr;
 guardarUsr = async function() {
   const eid = document.getElementById('usr-id').value;
   const esNuevo = !eid;
+  const largoAntes = DB.usrs.length;
   _guardarUsrOrig();
   if (NEGOCIO_ID) {
     if (esNuevo) {
+      if (DB.usrs.length === largoAntes) return;
       const usr = DB.usrs[DB.usrs.length - 1];
       await _syncSupabase('usr_new', usr);
     } else {
