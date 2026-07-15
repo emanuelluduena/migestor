@@ -207,7 +207,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
     <span style="font-size:26px">🌿</span>
     <div><div class="nombre">Almacén Natural</div><div class="sub">Sistema de Gestión</div></div>
   </div>
-  <div class="hinfo"><button class="btn" id="btn-calc" onclick="toggleCalc()" style="background:rgba(255,255,255,0.18);color:white;border:1.5px solid rgba(255,255,255,0.35);padding:6px 13px;font-size:13px;" title="Calculadora">🧮 Calc</button><span>📅 <span id="fhdr"></span></span><span class="monotrib-txt">🇦🇷 Monotributista</span><span id="usr-badge" style="background:rgba(255,255,255,0.2);border-radius:20px;padding:3px 10px;font-size:12px;cursor:pointer;" onclick="doLogout()" title="Cerrar sesión">👤 <span id="usr-badge-nom"></span> · Salir</span></div>
+  <div class="hinfo"><button class="btn" id="btn-calc" onclick="toggleCalc()" style="background:rgba(255,255,255,0.18);color:white;border:1.5px solid rgba(255,255,255,0.35);padding:6px 13px;font-size:13px;" title="Calculadora">🧮 Calc</button><button class="btn" id="btn-ayuda" onclick="abrirAyuda()" style="background:rgba(255,255,255,0.18);color:white;border:1.5px solid rgba(255,255,255,0.35);padding:6px 13px;font-size:13px;" title="¿Necesitás ayuda?">🛟 Ayuda</button><span>📅 <span id="fhdr"></span></span><span class="monotrib-txt">🇦🇷 Monotributista</span><span id="usr-badge" style="background:rgba(255,255,255,0.2);border-radius:20px;padding:3px 10px;font-size:12px;cursor:pointer;" onclick="doLogout()" title="Cerrar sesión">👤 <span id="usr-badge-nom"></span> · Salir</span></div>
 </header>
 <nav id="nav">
   <button class="tab activo" onclick="irA('inicio')" data-tab="inicio"><span class="ti">🏠</span>Inicio</button>
@@ -1265,6 +1265,13 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   <div style="font-size:11px;color:var(--gris);margin-top:8px">Enter para confirmar</div>
 </div></div>
 
+<div class="moverlay" id="m-ayuda"><div class="modal" style="max-width:360px;text-align:center">
+  <h2>🛟 ¿Necesitás ayuda?</h2>
+  <p style="color:#64748b;margin:10px 0 18px">Contame qué está pasando y te respondo lo antes posible.</p>
+  <button class="btn bv" style="width:100%;justify-content:center;margin-bottom:10px" onclick="contactarWhatsapp()">💬 WhatsApp</button>
+  <button class="btn bg" style="width:100%;justify-content:center;margin-bottom:14px" onclick="contactarEmail()">📧 Email</button>
+  <button class="btn bg" style="justify-content:center" onclick="cerrar('m-ayuda')">Cerrar</button>
+</div></div>
 <div class="moverlay" id="m-gen"><div class="modal" style="max-width:340px;text-align:center">
   <h2 style="justify-content:center">✏️ Artículo con Precio Manual</h2>
   <p style="font-size:12px;color:var(--gris);margin-bottom:14px">Enter en descripción → salta al precio · Enter en precio → agrega al ticket</p>
@@ -1330,6 +1337,24 @@ tbody td{padding:9px 13px;vertical-align:middle;}
 // ═══════════════════════ SUPABASE CONFIG ═══════════════════════
 const SB_URL = "https://yabschiaphpiozajnwxx.supabase.co";
 const SB_KEY = "sb_publishable_BZlDsQFy_PFTx-01ZYt7rg_FN4IqLB5";
+const ALERTAS_URL = `${SB_URL}/functions/v1/alertas-soporte`;
+
+// Avisa a soporte (Slack) de un problema. Nunca debe romper el flujo normal:
+// si falla el aviso mismo, se ignora en silencio.
+async function avisarSoporte(tipo, mensaje) {
+  try {
+    await fetch(ALERTAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tipo: tipo,
+        negocio_id: NEGOCIO_ID || 'sin-sesion',
+        negocio_nombre: (typeof DB !== 'undefined' && DB && DB.config && DB.config.nombre) || '',
+        mensaje: mensaje
+      })
+    });
+  } catch(e) { /* si esto falla, no hay nada más que hacer */ }
+}
 let NEGOCIO_ID = null;
 
 // ID Map: Supabase UUID <-> numeric id local (para compatibilidad)
@@ -1640,7 +1665,9 @@ async function procesarColaSync() {
       const idx = _colaSyncPendiente.indexOf(item);
       if (idx !== -1) _colaSyncPendiente.splice(idx, 1);
       exitosos++;
-    } catch(e) { /* sigue sin conexión o falló de nuevo, se queda en la cola */ }
+    } catch(e) {
+      avisarSoporte('sync_fallido_persistente', 'No se pudo sincronizar "' + item.tipo + '": ' + (e && e.message ? e.message : e));
+    }
   }
   actualizarBannerConexion();
   if (exitosos > 0) {
@@ -1655,6 +1682,13 @@ async function procesarColaSync() {
 window.addEventListener('online', procesarColaSync);
 window.addEventListener('offline', actualizarBannerConexion);
 actualizarBannerConexion();
+
+window.addEventListener('error', function(ev) {
+  avisarSoporte('js_error', (ev.message || 'Error desconocido') + ' — ' + (ev.filename || '') + ':' + (ev.lineno || ''));
+});
+window.addEventListener('unhandledrejection', function(ev) {
+  avisarSoporte('js_promise_rejection', (ev.reason && ev.reason.message) ? ev.reason.message : String(ev.reason));
+});
 
 async function _syncSupabase(tipo, data, esReintento=false) {
   if (!NEGOCIO_ID) return;
@@ -2895,6 +2929,28 @@ function addGenerico(){
   setTimeout(function(){document.getElementById('pvbus').focus();},200);
 }
 function abrirGenerico(){abrir('m-gen');setTimeout(function(){document.getElementById('gnom').focus();},100);}
+
+function abrirAyuda(){ abrir('m-ayuda'); }
+
+function _contextoSoporte(){
+  const negocio = (typeof DB !== 'undefined' && DB && DB.config && DB.config.nombre) || 'Mi Gestor';
+  const usuario = (typeof _sesion !== 'undefined' && _sesion && _sesion.nom) || 'sin sesión';
+  const fecha = new Date().toLocaleString('es-AR');
+  return 'Negocio: ' + negocio + '\nUsuario: ' + usuario + '\nFecha: ' + fecha + '\n\nDescribí acá tu consulta:\n';
+}
+
+function contactarWhatsapp(){
+  const texto = encodeURIComponent(_contextoSoporte());
+  window.open('https://wa.me/5493515426971?text=' + texto, '_blank');
+  cerrar('m-ayuda');
+}
+
+function contactarEmail(){
+  const asunto = encodeURIComponent('Consulta Mi Gestor');
+  const cuerpo = encodeURIComponent(_contextoSoporte());
+  window.location.href = 'mailto:emanuelluduena1@gmail.com?subject=' + asunto + '&body=' + cuerpo;
+  cerrar('m-ayuda');
+}
 function renderTicket(){
   const vac=document.getElementById('tvacio'),cont=document.getElementById('tcont');
   if(!ticket.length){vac.style.display='block';cont.style.display='none';document.getElementById('tcnt').textContent='';return;}
@@ -5624,6 +5680,7 @@ doLogin = async function() {
 
   } catch(e) {
     console.error('Error login:', e);
+    avisarSoporte('login_fallido', 'Fallo al iniciar sesión para usuario "' + usr + '": ' + (e && e.message ? e.message : e));
     loginErr.style.display = 'block';
     loginErr.textContent = 'Error de conexión. Verificá internet.';
     if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'Ingresar'; }
