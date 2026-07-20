@@ -1558,7 +1558,7 @@ async function cargarDesdeSupabase(negId) {
       id: numTurno--, _uuid: t.id,
       fecha: t.fecha_apertura ? t.fecha_apertura.split('T')[0] : hoy(),
       apertura: t.hora_apertura || '00:00',
-      cierre: t.fecha_cierre ? t.fecha_cierre.split('T')[1] : null,
+      cierre: t.hora_cierre || (t.fecha_cierre ? new Date(t.fecha_cierre).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false}) : null),
       fondo: t.fondo_inicial || 0,
       obs: t.observaciones || '',
       arqueo: {}
@@ -1729,6 +1729,7 @@ async function _syncSupabase(tipo, data, esReintento=false) {
     } else if (tipo === 'turno_close' && data._uuid) {
       await sbPatch('turnos', data._uuid, {
         fecha_cierre: new Date().toISOString(),
+        hora_cierre: data.cierre,
         observaciones: data.obs || null
       });
     } else if (tipo === 'art_soft_del' && data._uuid) {
@@ -2146,7 +2147,40 @@ const _rd500 = n => { const v = parseFloat(n)||0; return v === 0 ? 0 : Math.ceil
 const _df = new Intl.DateTimeFormat('es-AR');
 const fmt = n => '$' + _nf.format(_rd500(n));
 const hoy = () => new Date().toISOString().split('T')[0];
-const hora = () => new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+const hora = () => new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false});
+// Normaliza cualquier hora guardada (vieja con "a. m./p. m." o nueva en 24hs) para mostrarla siempre en 24hs
+function _hora24(h){
+  if(!h) return h;
+  const m = String(h).match(/(\d{1,2}):(\d{2})(?:\s*([ap]))?/i);
+  if(!m) return h;
+  let hh = parseInt(m[1],10);
+  const mm = m[2];
+  if(m[3]){
+    const esPM = m[3].toLowerCase()==='p';
+    if(hh===12) hh = esPM ? 12 : 0;
+    else if(esPM) hh += 12;
+  }
+  return (hh<10?'0':'')+hh+':'+mm;
+}
+// Clave numérica ordenable (fecha+hora reales) para no depender del string formateado "05:15 p. m."
+function _clave(v){
+  const f = v.fecha || '';
+  const fNum = parseInt(f.replace(/-/g,''),10) || 0;
+  const h = v.hora || '';
+  const m = h.match(/(\d{1,2}):(\d{2})\s*([ap])?/i);
+  let mins = 0;
+  if(m){
+    let hh = parseInt(m[1],10);
+    const mm = parseInt(m[2],10);
+    if(m[3]){ // formato viejo 12h ("a. m." / "p. m.")
+      const esPM = m[3].toLowerCase()==='p';
+      if(hh===12) hh = esPM ? 12 : 0;
+      else if(esPM) hh += 12;
+    }
+    mins = hh*60+mm;
+  }
+  return fNum*1440 + mins;
+}
 const fleg = f => { if(!f) return '-'; const p=f.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
 const pxc = (c,p) => c*(1+p/100);
 function cerrar(id) { document.getElementById(id).classList.remove('open'); }
@@ -3089,10 +3123,10 @@ function cobrarVenta(){
 function renderHist(){
   const tb=document.getElementById('thist');
   const pgEl=document.getElementById('pg-hist');
-  const items=[...DB.ventas].reverse();
+  const items=[...DB.ventas].sort(function(a,b){return _clave(b)-_clave(a);});
   if(!items.length){tb.innerHTML='<tr><td colspan="6"><div class="vacio"><div class="vi">📋</div><p>Sin ventas</p></div></td></tr>';if(pgEl)pgEl.innerHTML='';return;}
   const {slice,nav}=paginar('hist',items);
-  tb.innerHTML=slice.map(function(v){return '<tr><td>#'+v.id+'</td><td>'+fleg(v.fecha)+' '+(v.hora||'')+'</td><td>'+v.clinom+'</td><td class="tv">'+fmt(v.total)+'</td><td><span class="bdg bt2">'+v.pago+'</span></td><td><button class="btn bg bsm" onclick="verVenta('+v.id+')">👁️</button></td></tr>';}).join('');
+  tb.innerHTML=slice.map(function(v){return '<tr><td>#'+v.id+'</td><td>'+fleg(v.fecha)+' '+_hora24(v.hora)+'</td><td>'+v.clinom+'</td><td class="tv">'+fmt(v.total)+'</td><td><span class="bdg bt2">'+v.pago+'</span></td><td><button class="btn bg bsm" onclick="verVenta('+v.id+')">👁️</button></td></tr>';}).join('');
   if(pgEl)pgEl.innerHTML=nav;
 }
 _pgRender['hist'] = renderHist;
@@ -3100,7 +3134,7 @@ function verVenta(id){
   ventaActual=DB.ventas.find(function(x){return x.id===id;});if(!ventaActual)return;
   const v=ventaActual;
   let rows='';v.items.forEach(function(it){rows+='<tr><td>'+it.nom+'</td><td>'+it.cant+'</td><td>'+fmt(it.precio)+'</td><td>'+fmt(it.precio*it.cant)+'</td></tr>';});
-  document.getElementById('dventa').innerHTML='<div style="background:var(--crema);border-radius:10px;padding:14px;font-size:13px"><div style="display:flex;justify-content:space-between;margin-bottom:10px"><div><strong>Venta #'+v.id+'</strong><br>'+fleg(v.fecha)+' '+(v.hora||'')+'</div><div style="text-align:right"><strong>Cliente:</strong> '+v.clinom+'<br><span class="bdg bv2">'+(v.listaNom||v.lista)+'</span></div></div><div class="twrap"><table><thead><tr><th>Artículo</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>'+rows+'</tbody></table></div><div style="margin-top:10px;text-align:right">Subtotal: '+fmt(v.sub)+(v.desc?'<br>Descuento: '+v.desc+'%':'')+'<div style="font-size:20px;font-weight:700;color:var(--verde);font-family:Fraunces,serif">TOTAL: '+fmt(v.total)+'</div>Pago: <strong>'+v.pago+'</strong></div></div>';
+  document.getElementById('dventa').innerHTML='<div style="background:var(--crema);border-radius:10px;padding:14px;font-size:13px"><div style="display:flex;justify-content:space-between;margin-bottom:10px"><div><strong>Venta #'+v.id+'</strong><br>'+fleg(v.fecha)+' '+_hora24(v.hora)+'</div><div style="text-align:right"><strong>Cliente:</strong> '+v.clinom+'<br><span class="bdg bv2">'+(v.listaNom||v.lista)+'</span></div></div><div class="twrap"><table><thead><tr><th>Artículo</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>'+rows+'</tbody></table></div><div style="margin-top:10px;text-align:right">Subtotal: '+fmt(v.sub)+(v.desc?'<br>Descuento: '+v.desc+'%':'')+'<div style="font-size:20px;font-weight:700;color:var(--verde);font-family:Fraunces,serif">TOTAL: '+fmt(v.total)+'</div>Pago: <strong>'+v.pago+'</strong></div></div>';
   const btnEdit=document.getElementById('vventa-btn-editar');
   if(btnEdit) btnEdit.style.display=(_sesion&&_sesion.rol==='Administrador')?'inline-flex':'none';
   abrir('m-vventa');
@@ -3297,7 +3331,7 @@ function renderCaja(){
   document.getElementById('caja-sin-turno').style.display=ta?'none':'block';
   document.getElementById('caja-con-turno').style.display=ta?'block':'none';
   if(ta){
-    document.getElementById('caja-turno-badge').textContent='🔓 Turno abierto desde '+ta.apertura+' · '+ta.fecha;
+    document.getElementById('caja-turno-badge').textContent='🔓 Turno abierto desde '+_hora24(ta.apertura)+' · '+ta.fecha;
     const movTurno=DB.caja.filter(function(m){return m.turnoId===ta.id;});
     const venTurno=DB.ventas.filter(function(v){return v.turnoId===ta.id||(!v.turnoId&&v.fecha===ta.fecha);});
     const venTotal=venTurno.reduce(function(s,v){return s+v.total;},0);
@@ -3322,35 +3356,46 @@ document.getElementById('cajres').innerHTML=
   tarjetasPago;
     const tb=document.getElementById('tcajmov');
     const todos=[
-      ...venTurno.map(function(v){return{hora:v.hora,tipo:'venta',desc:'Venta - '+v.clinom+' ('+fleg(v.fecha)+' '+v.hora+')',monto:v.total};}),
+      ...venTurno.map(function(v){return{fecha:v.fecha,hora:v.hora,tipo:'venta',desc:'Venta - '+v.clinom+' ('+fleg(v.fecha)+' '+_hora24(v.hora)+')',monto:v.total};}),
       ...movTurno
-    ].sort(function(a,b){return (a.hora||'').localeCompare(b.hora||'');});
+    ].sort(function(a,b){return _clave(a)-_clave(b);});
     if(!todos.length){tb.innerHTML='<tr><td colspan="4"><div class="vacio"><div class="vi">🏦</div><p>Sin movimientos</p></div></td></tr>';}
     else tb.innerHTML=todos.map(function(m){
       const esVenta=m.tipo==='venta';
       const esSalida=m.tipo==='salida';
-      return '<tr><td>'+(m.hora||'-')+'</td><td><span class="bdg '+(esVenta?'bv2':esSalida?'br2':'bv2')+'">'+m.tipo+'</span></td><td>'+m.desc+'</td><td class="'+(esSalida?'tr2':'tv')+'">'+(esSalida?'-':'')+fmt(m.monto)+'</td></tr>';
+      return '<tr><td>'+(m.hora?_hora24(m.hora):'-')+'</td><td><span class="bdg '+(esVenta?'bv2':esSalida?'br2':'bv2')+'">'+m.tipo+'</span></td><td>'+m.desc+'</td><td class="'+(esSalida?'tr2':'tv')+'">'+(esSalida?'-':'')+fmt(m.monto)+'</td></tr>';
     }).join('');
   }
   const cerrados=[...DB.turnos].filter(function(t){return t.cierre;}).reverse();
   const hEl=document.getElementById('caja-historial');
   if(!cerrados.length){hEl.innerHTML='<div class="vacio"><div class="vi">📋</div><p>Sin turnos cerrados aún</p></div>';return;}
   hEl.innerHTML=cerrados.map(function(t){
-    const movT=DB.caja.filter(function(m){return m.turnoId===t.id;});
-    const venT=DB.ventas.filter(function(v){return v.turnoId===t.id;});
+    const movT=DB.caja.filter(function(m){return m.turnoId===t.id||(!m.turnoId&&m.fecha===t.fecha);});
+    const venT=DB.ventas.filter(function(v){return v.turnoId===t.id||(!v.turnoId&&v.fecha===t.fecha);});
     const venTotal=venT.reduce(function(s,v){return s+v.total;},0);
+    const venEfectivo=venT.filter(function(v){return v.pago==='Efectivo';}).reduce(function(s,v){return s+v.total;},0);
     const ing=movT.filter(function(m){return m.tipo==='entrada';}).reduce(function(s,m){return s+m.monto;},0);
     const sal=movT.filter(function(m){return m.tipo==='salida';}).reduce(function(s,m){return s+m.monto;},0);
-    const tot=(t.fondo||0)+venTotal+ing-sal;
+    const efectivoEsperado=(t.fondo||0)+venEfectivo+ing-sal;
+    const pagosDetalleHist=['Efectivo','Transferencia','Débito','Crédito','QR','Cuenta Corriente'];
+    let chipsPago='';
+    pagosDetalleHist.forEach(function(p){
+      const monto=venT.filter(function(v){return v.pago===p;}).reduce(function(s,v){return s+v.total;},0);
+      if(monto===0)return;
+      chipsPago+='<span class="bdg bv2" style="font-size:11px">'+p+': '+fmt(monto)+'</span>';
+    });
     return '<div style="background:var(--crema);border-radius:10px;padding:14px;margin-bottom:10px;border-left:4px solid var(--verde-claro)">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'+
-      '<div><span style="font-weight:700;font-size:14px">📅 '+t.fecha+'</span> <span style="color:var(--gris);font-size:12px">'+t.apertura+' → '+t.cierre+'</span></div>'+
-      '<div style="display:flex;gap:14px;font-size:13px">'+
+      '<div><span style="font-weight:700;font-size:14px">📅 '+t.fecha+'</span> <span style="color:var(--gris);font-size:12px">'+_hora24(t.apertura)+' → '+_hora24(t.cierre)+'</span></div>'+
+      '<div style="display:flex;gap:14px;font-size:13px;flex-wrap:wrap">'+
       '<span>🎫 <strong>'+venT.length+'</strong> tickets</span>'+
       '<span class="tv">💰 <strong>'+fmt(venTotal)+'</strong> ventas</span>'+
+      (ing?('<span style="color:var(--verde-claro)">📥 <strong>'+fmt(ing)+'</strong> ingresos</span>'):'')+
       '<span class="tr2">📤 <strong>'+fmt(sal)+'</strong> egresos</span>'+
-      '<span style="font-weight:700">🏦 <strong>'+fmt(tot)+'</strong> total</span>'+
-      '</div></div></div>';
+      '<span style="font-weight:700" title="Fondo inicial + ventas en efectivo + ingresos − egresos">🏦 <strong>'+fmt(efectivoEsperado)+'</strong> efectivo esperado</span>'+
+      '</div></div>'+
+      (chipsPago?('<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">'+chipsPago+'</div>'):'')+
+      '</div>';
   }).join('');
 }
 
@@ -3417,13 +3462,13 @@ const totalEsperado=(ta.fondo||0)+efectivoSistema+ingEx-salEx;
   document.getElementById('arqueo-obs').value='';
   // Resumen de movimientos del día (sin ventas)
 let movHtml='';
-const movOrdenados=[...movTurno].sort(function(a,b){return (a.hora||'').localeCompare(b.hora||'');});
+const movOrdenados=[...movTurno].sort(function(a,b){return _clave(a)-_clave(b);});
 if(movOrdenados.length){
   movHtml='<div class="stit" style="margin-top:14px">📋 Movimientos del turno</div>'+
   '<div class="twrap" style="margin-bottom:14px"><table><thead><tr><th>Hora</th><th>Tipo</th><th>Descripción</th><th>Monto</th></tr></thead><tbody>'+
   movOrdenados.map(function(m){
     const esSalida=m.tipo==='salida';
-    return '<tr><td>'+(m.hora||'-')+'</td><td><span class="bdg '+(esSalida?'br2':'bv2')+'">'+m.tipo+'</span></td><td>'+(m.desc||'-')+'</td><td class="'+(esSalida?'tr2':'tv')+'">'+(esSalida?'-':'')+fmt(m.monto)+'</td></tr>';
+    return '<tr><td>'+(m.hora?_hora24(m.hora):'-')+'</td><td><span class="bdg '+(esSalida?'br2':'bv2')+'">'+m.tipo+'</span></td><td>'+(m.desc||'-')+'</td><td class="'+(esSalida?'tr2':'tv')+'">'+(esSalida?'-':'')+fmt(m.monto)+'</td></tr>';
   }).join('')+'</tbody></table></div>';
 }
 document.getElementById('arqueo-movimientos').innerHTML=movHtml;
@@ -5528,6 +5573,23 @@ if(!DB.config) DB.config={};
 async function arrancarSistema() {
   document.getElementById('login-screen').style.display = 'none';
 
+  // ═══ Acceso directo a la demo pública, sin login (?demo=1) ═══
+  const _params = new URLSearchParams(window.location.search);
+  if (_params.get('demo') === '1') {
+    const _demos = [
+      { usr: 'usuario1', pass: 'demo1' },
+      { usr: 'usuario2', pass: 'demo2' },
+      { usr: 'usuario3', pass: 'demo3' },
+      { usr: 'usuario4', pass: 'demo4' },
+      { usr: 'usuario5', pass: 'demo5' }
+    ];
+    const _elegido = _demos[Math.floor(Math.random() * _demos.length)];
+    document.getElementById('login-usr').value = _elegido.usr;
+    document.getElementById('login-pass').value = _elegido.pass;
+    await doLogin();
+    return;
+  }
+
   const sesGuardada = localStorage.getItem('sesionActiva');
   if (sesGuardada) {
     try {
@@ -5639,6 +5701,18 @@ doLogin = async function() {
       if (conectados.size >= limiteUsuarios) {
         loginErr.style.display = 'block';
         loginErr.textContent = 'Límite de usuarios alcanzado (' + limiteUsuarios + '/' + limiteUsuarios + ' conectados). Cerrá sesión en otro dispositivo o contactanos para ampliar tu plan.';
+        if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'Ingresar'; }
+        document.getElementById('login-pass').value = '';
+        return;
+      }
+    }
+
+    // Verificar si el negocio es un trial y si ya venció
+    if (negActual.length && negActual[0].es_trial && negActual[0].trial_vencimiento) {
+      const hoy = new Date().toISOString().slice(0, 10);
+      if (negActual[0].trial_vencimiento < hoy) {
+        loginErr.style.display = 'block';
+        loginErr.textContent = 'Tu período de prueba de 15 días terminó. Escribinos por WhatsApp si querés seguir usando Mi Gestor.';
         if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'Ingresar'; }
         document.getElementById('login-pass').value = '';
         return;
