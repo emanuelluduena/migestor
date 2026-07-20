@@ -2149,6 +2149,12 @@ const fmt = n => '$' + _nf.format(_rd500(n));
 const hoy = () => new Date().toISOString().split('T')[0];
 const hora = () => new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false});
 // Normaliza cualquier hora guardada (vieja con "a. m./p. m." o nueva en 24hs) para mostrarla siempre en 24hs
+// Número de venta dentro del día (1, 2, 3...), no el id interno del sistema
+function _numVentaDia(v){
+  const mismas = DB.ventas.filter(function(x){return x.fecha===v.fecha;}).sort(function(a,b){return _clave(a)-_clave(b);});
+  const idx = mismas.indexOf(v);
+  return idx>=0 ? idx+1 : v.id;
+}
 function _hora24(h){
   if(!h) return h;
   const m = String(h).match(/(\d{1,2}):(\d{2})(?:\s*([ap]))?/i);
@@ -3126,7 +3132,7 @@ function renderHist(){
   const items=[...DB.ventas].sort(function(a,b){return _clave(b)-_clave(a);});
   if(!items.length){tb.innerHTML='<tr><td colspan="6"><div class="vacio"><div class="vi">📋</div><p>Sin ventas</p></div></td></tr>';if(pgEl)pgEl.innerHTML='';return;}
   const {slice,nav}=paginar('hist',items);
-  tb.innerHTML=slice.map(function(v){return '<tr><td>#'+v.id+'</td><td>'+fleg(v.fecha)+' '+_hora24(v.hora)+'</td><td>'+v.clinom+'</td><td class="tv">'+fmt(v.total)+'</td><td><span class="bdg bt2">'+v.pago+'</span></td><td><button class="btn bg bsm" onclick="verVenta('+v.id+')">👁️</button></td></tr>';}).join('');
+  tb.innerHTML=slice.map(function(v){return '<tr><td>#'+_numVentaDia(v)+'</td><td>'+fleg(v.fecha)+' '+_hora24(v.hora)+'</td><td>'+v.clinom+'</td><td class="tv">'+fmt(v.total)+'</td><td><span class="bdg bt2">'+v.pago+'</span></td><td><button class="btn bg bsm" onclick="verVenta('+v.id+')">👁️</button></td></tr>';}).join('');
   if(pgEl)pgEl.innerHTML=nav;
 }
 _pgRender['hist'] = renderHist;
@@ -3134,7 +3140,7 @@ function verVenta(id){
   ventaActual=DB.ventas.find(function(x){return x.id===id;});if(!ventaActual)return;
   const v=ventaActual;
   let rows='';v.items.forEach(function(it){rows+='<tr><td>'+it.nom+'</td><td>'+it.cant+'</td><td>'+fmt(it.precio)+'</td><td>'+fmt(it.precio*it.cant)+'</td></tr>';});
-  document.getElementById('dventa').innerHTML='<div style="background:var(--crema);border-radius:10px;padding:14px;font-size:13px"><div style="display:flex;justify-content:space-between;margin-bottom:10px"><div><strong>Venta #'+v.id+'</strong><br>'+fleg(v.fecha)+' '+_hora24(v.hora)+'</div><div style="text-align:right"><strong>Cliente:</strong> '+v.clinom+'<br><span class="bdg bv2">'+(v.listaNom||v.lista)+'</span></div></div><div class="twrap"><table><thead><tr><th>Artículo</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>'+rows+'</tbody></table></div><div style="margin-top:10px;text-align:right">Subtotal: '+fmt(v.sub)+(v.desc?'<br>Descuento: '+v.desc+'%':'')+'<div style="font-size:20px;font-weight:700;color:var(--verde);font-family:Fraunces,serif">TOTAL: '+fmt(v.total)+'</div>Pago: <strong>'+v.pago+'</strong></div></div>';
+  document.getElementById('dventa').innerHTML='<div style="background:var(--crema);border-radius:10px;padding:14px;font-size:13px"><div style="display:flex;justify-content:space-between;margin-bottom:10px"><div><strong>Venta #'+_numVentaDia(v)+'</strong><br>'+fleg(v.fecha)+' '+_hora24(v.hora)+'</div><div style="text-align:right"><strong>Cliente:</strong> '+v.clinom+'<br><span class="bdg bv2">'+(v.listaNom||v.lista)+'</span></div></div><div class="twrap"><table><thead><tr><th>Artículo</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>'+rows+'</tbody></table></div><div style="margin-top:10px;text-align:right">Subtotal: '+fmt(v.sub)+(v.desc?'<br>Descuento: '+v.desc+'%':'')+'<div style="font-size:20px;font-weight:700;color:var(--verde);font-family:Fraunces,serif">TOTAL: '+fmt(v.total)+'</div>Pago: <strong>'+v.pago+'</strong></div></div>';
   const btnEdit=document.getElementById('vventa-btn-editar');
   if(btnEdit) btnEdit.style.display=(_sesion&&_sesion.rol==='Administrador')?'inline-flex':'none';
   abrir('m-vventa');
@@ -3143,7 +3149,7 @@ function imprimirTicket(){
   if(!ventaActual)return;const v=ventaActual;
   let items='';v.items.forEach(function(it){items+='<div>'+it.nom+'<br>  '+it.cant+' x '+fmt(it.precio)+' = '+fmt(it.precio*it.cant)+'</div>';});
   const w=window.open('','_blank','width=400,height=600');
-  w.document.write('<!DOCTYPE html><html><head><title>Ticket #'+v.id+'</title><style>body{font-family:monospace;font-size:13px;padding:18px;max-width:300px}h2{text-align:center}hr{border:1px dashed #999}.tot{font-size:15px;font-weight:bold}</style></head><body><h2>Almacen Natural</h2><hr><p>Ticket #'+v.id+' - '+fleg(v.fecha)+'</p><p>Cliente: '+v.clinom+'</p><hr>'+items+'<hr>'+(v.desc?'<p>Descuento: '+v.desc+'%</p>':'')+'<p class="tot">TOTAL: '+fmt(v.total)+'</p><p>Pago: '+v.pago+'</p><hr><p style="text-align:center">Gracias!</p><\/body><\/html>');
+  w.document.write('<!DOCTYPE html><html><head><title>Ticket #'+_numVentaDia(v)+'</title><style>body{font-family:monospace;font-size:13px;padding:18px;max-width:300px}h2{text-align:center}hr{border:1px dashed #999}.tot{font-size:15px;font-weight:bold}</style></head><body><h2>Almacen Natural</h2><hr><p>Ticket #'+_numVentaDia(v)+' - '+fleg(v.fecha)+'</p><p>Cliente: '+v.clinom+'</p><hr>'+items+'<hr>'+(v.desc?'<p>Descuento: '+v.desc+'%</p>':'')+'<p class="tot">TOTAL: '+fmt(v.total)+'</p><p>Pago: '+v.pago+'</p><hr><p style="text-align:center">Gracias!</p><\/body><\/html>');
   w.print();
 }
 
