@@ -225,7 +225,6 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   <button class="tab" onclick="irA('config')" data-tab="config"><span class="ti">⚙️</span>Configuración</button>
   <button class="tab" onclick="irA('bitacora')" data-tab="bitacora"><span class="ti">🔒</span>Bitácora</button>
   <button class="tab" onclick="irA('importar')" data-tab="importar"><span class="ti">📂</span>Importar/Export.</button>
-  <button class="tab" onclick="irA('asistente')" data-tab="asistente"><span class="ti">🤖</span>Asistente IA</button>
   <button class="tab" onclick="irA('tareas')" data-tab="tareas"><span class="ti">✅</span>Tareas<span id="badge-tareas" class="tab-badge" style="display:none"></span></button>
   <button class="tab" onclick="irA('horarios')" data-tab="horarios"><span class="ti">🕒</span>Horarios</button>
 </nav>
@@ -619,7 +618,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
           <option value="art_borrado">Artículos borrados</option>
           <option value="comp_borrada">Compras borradas</option>
         </select>
-        <button class="btn br bsm" onclick="if(confirm('Borrar toda la bitácora?')){DB.bitacora=[];saveDB();renderBitacora();}">🗑️ Limpiar bitácora</button>
+        <button class="btn br bsm" onclick="limpiarBitacora()">🗑️ Limpiar bitácora</button>
         <span class="hint">Solo visible para Administradores</span>
       </div>
       <div class="twrap"><table>
@@ -1301,7 +1300,8 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   <h2>🧾 Detalle de Venta</h2>
   <div id="dventa"></div>
   <div class="mfoot"><button class="btn bg" onclick="cerrar('m-vventa')">Cerrar</button><button class="btn bv" onclick="imprimirTicket()">🖨️ Imprimir</button>
-          <button id="vventa-btn-editar" class="btn bt" style="display:none" onclick="cerrar('m-vventa');abrirEditarVenta(ventaActual.id)">✏️ Editar venta</button></div>
+          <button id="vventa-btn-editar" class="btn bt" style="display:none" onclick="cerrar('m-vventa');abrirEditarVenta(ventaActual.id)">✏️ Editar venta</button>
+          <button id="vventa-btn-borrar" class="btn br" style="display:none" onclick="delVenta(ventaActual.id)">🗑️ Borrar venta</button></div>
 </div></div>
 
 <!-- MODAL EDITAR VENTA -->
@@ -1617,9 +1617,20 @@ async function cargarDesdeSupabase(negId) {
     }));
   } catch(e) { console.warn('Error cargando compras:', e); comps = []; }
 
+  // Cargar bitácora
+  let bitacora = [];
+  try {
+    const bitaSB = await sbGet('bitacora', `${ng}&order=created_at.desc&limit=200`);
+    bitacora = bitaSB.map(b => ({
+      id: b.id, _uuid: b.id, fecha: b.fecha || '', hora: b.hora || '',
+      tipo: b.tipo || '', detalle: b.detalle || '', data: b.data || '',
+      estado: b.estado || 'registro'
+    }));
+  } catch(e) { console.warn('Error cargando bitácora:', e); bitacora = []; }
+
   return {
     arts, provs, usrs, ventas, gastos, caja, turnos,
-    clis, comps, bitacora: [], config, artsPapelera,
+    clis, comps, bitacora, config, artsPapelera,
     ids: { art: arts.length+1, prov: provs.length+1, cli: clis.length+1, usr: usrs.length+1, comp: comps.length+1, venta: ventas.length+1, gasto: gastos.length+1, caja: caja.length+1, turno: turnos.length+1 }
   };
 }
@@ -1771,6 +1782,8 @@ async function _syncSupabase(tipo, data, esReintento=false) {
         }));
         if (items.length) await sbPost('venta_items', items);
       }
+    } else if (tipo === 'venta_del' && data._uuid) {
+      await sbDelete('ventas', data._uuid);
     } else if (tipo === 'gasto_new') {
       const res = await sbPost('gastos', {
         negocio_id: NEGOCIO_ID, fecha: data.fecha, categoria: data.cat,
@@ -1858,6 +1871,13 @@ async function _syncSupabase(tipo, data, esReintento=false) {
       });
     } else if (tipo === 'gasto_del' && data._uuid) {
       await sbDelete('gastos', data._uuid);
+    } else if (tipo === 'bitacora_new') {
+      const res = await sbPost('bitacora', {
+        negocio_id: NEGOCIO_ID, fecha: data.fecha, hora: data.hora,
+        tipo: data.tipo, detalle: data.detalle, data: data.data,
+        estado: data.estado, usuario_nom: _sesion ? _sesion.nom : null
+      });
+      if (res[0]) data._uuid = res[0].id;
     } else if (tipo === 'nomconfig_new') {
       const res = await sbPost('nomina_config', {
         negocio_id: NEGOCIO_ID, usuario_id: data.usuarioId, tipo_contrato: data.tipoContrato,
@@ -2669,6 +2689,7 @@ async function delArt(id){
   await _moverArtsAPapelera([a]);
   saveDB();
   renderArts();
+  regBita('art_borrado','Artículo borrado: '+(a.nom||'')+' (código '+(a.cod||'-')+')',a);
   toast('Artículo movido a la Papelera','v');
 }
 
@@ -2828,7 +2849,7 @@ function addItemComp(){const aid=parseInt(document.getElementById('cart').value)
 function renderItemsComp(){const tb=document.getElementById('titemscomp');let tot=0;if(!itemsComp.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:12px;color:#999">Agregá artículos</td></tr>';}else{tb.innerHTML=itemsComp.map((it,i)=>{tot+=it.sub;return '<tr><td>'+it.nom+'</td><td>'+it.cant+'</td><td>'+fmt(it.cos)+'</td><td>'+fmt(it.sub)+'</td><td><button class="btn br bsm" onclick="quitItemComp('+i+')">✕</button></td></tr>';}).join('');}document.getElementById('ctotal').textContent=fmt(tot);}
 function quitItemComp(i){itemsComp.splice(i,1);renderItemsComp();}
 async function guardarCompra(){if(!itemsComp.length){toast('Agregá artículos','i');return;}const pid=parseInt(document.getElementById('cprov').value);const prov=DB.provs.find(p=>p.id===pid);const tot=itemsComp.reduce((s,i)=>s+i.sub,0);const comp={id:nid('comp'),fecha:document.getElementById('cfecha').value,provid:pid,provnom:prov?prov.nom:'-',nro:document.getElementById('cnro').value,items:[...itemsComp],total:tot};const artsAfectados=[];itemsComp.forEach(it=>{const art=DB.arts.find(a=>a.id===it.aid);if(art){art.stk=(art.stk||0)+it.cant;art.cos=it.cos;artsAfectados.push(art);}});DB.comps.push(comp);saveDB();cerrar('m-compra');renderComps();if(NEGOCIO_ID){artsAfectados.forEach(art=>{if(art._uuid)_syncSupabase('art_update',art);});await _syncSupabase('compra_new',comp);}}
-async function delComp(id){if(!await confirmar('¿Eliminás esta compra?'))return;const comp=DB.comps.find(c=>c.id===id);DB.comps=DB.comps.filter(c=>c.id!==id);saveDB();renderComps();if(NEGOCIO_ID&&comp&&comp._uuid)await _syncSupabase('compra_del',comp);}
+async function delComp(id){if(!await confirmar('¿Eliminás esta compra?'))return;const comp=DB.comps.find(c=>c.id===id);DB.comps=DB.comps.filter(c=>c.id!==id);saveDB();renderComps();if(comp)regBita('comp_borrada','Compra borrada: '+(comp.provnom||'-')+' del '+comp.fecha,comp);if(NEGOCIO_ID&&comp&&comp._uuid)await _syncSupabase('compra_del',comp);}
 
 // ═══════════════════════ VENTAS ═══════════════════════
 let ticket=[];
@@ -3143,6 +3164,8 @@ function verVenta(id){
   document.getElementById('dventa').innerHTML='<div style="background:var(--crema);border-radius:10px;padding:14px;font-size:13px"><div style="display:flex;justify-content:space-between;margin-bottom:10px"><div><strong>Venta #'+_numVentaDia(v)+'</strong><br>'+fleg(v.fecha)+' '+_hora24(v.hora)+'</div><div style="text-align:right"><strong>Cliente:</strong> '+v.clinom+'<br><span class="bdg bv2">'+(v.listaNom||v.lista)+'</span></div></div><div class="twrap"><table><thead><tr><th>Artículo</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>'+rows+'</tbody></table></div><div style="margin-top:10px;text-align:right">Subtotal: '+fmt(v.sub)+(v.desc?'<br>Descuento: '+v.desc+'%':'')+'<div style="font-size:20px;font-weight:700;color:var(--verde);font-family:Fraunces,serif">TOTAL: '+fmt(v.total)+'</div>Pago: <strong>'+v.pago+'</strong></div></div>';
   const btnEdit=document.getElementById('vventa-btn-editar');
   if(btnEdit) btnEdit.style.display=(_sesion&&_sesion.rol==='Administrador')?'inline-flex':'none';
+  const btnDel=document.getElementById('vventa-btn-borrar');
+  if(btnDel) btnDel.style.display=(_sesion&&_sesion.rol==='Administrador')?'inline-flex':'none';
   abrir('m-vventa');
 }
 function imprimirTicket(){
@@ -3151,6 +3174,24 @@ function imprimirTicket(){
   const w=window.open('','_blank','width=400,height=600');
   w.document.write('<!DOCTYPE html><html><head><title>Ticket #'+_numVentaDia(v)+'</title><style>body{font-family:monospace;font-size:13px;padding:18px;max-width:300px}h2{text-align:center}hr{border:1px dashed #999}.tot{font-size:15px;font-weight:bold}</style></head><body><h2>Almacen Natural</h2><hr><p>Ticket #'+_numVentaDia(v)+' - '+fleg(v.fecha)+'</p><p>Cliente: '+v.clinom+'</p><hr>'+items+'<hr>'+(v.desc?'<p>Descuento: '+v.desc+'%</p>':'')+'<p class="tot">TOTAL: '+fmt(v.total)+'</p><p>Pago: '+v.pago+'</p><hr><p style="text-align:center">Gracias!</p><\/body><\/html>');
   w.print();
+}
+async function delVenta(id){
+  if(!esAdmin()){toast('Solo el Administrador puede borrar ventas','a');return;}
+  const v=DB.ventas.find(function(x){return x.id===id;});
+  if(!v)return;
+  cerrar('m-vventa');
+  if(!await confirmar('¿Eliminás esta venta? Se va a devolver el stock de los artículos vendidos. Esta acción no se puede deshacer.'))return;
+  const numDia=_numVentaDia(v);
+  v.items.forEach(function(it){if(it.aid){const art=DB.arts.find(a=>a.id===it.aid);if(art)art.stk=(art.stk||0)+it.cant;}});
+  DB.ventas=DB.ventas.filter(function(x){return x.id!==id;});
+  regBita('venta_borrada','Venta #'+numDia+' borrada: '+v.clinom+' - '+fmt(v.total)+' ('+fleg(v.fecha)+' '+_hora24(v.hora)+')',v);
+  saveDB();
+  cerrar('m-vventa');
+  renderHist();
+  if(typeof renderArts==='function')renderArts();
+  if(typeof renderCaja==='function')renderCaja();
+  toast('Venta borrada','v');
+  if(NEGOCIO_ID&&v._uuid)await _syncSupabase('venta_del',v);
 }
 
 // ── EDITAR VENTA ──
@@ -3891,7 +3932,7 @@ document.addEventListener('keydown',function(e){
 // =================== BITACORA ===================
 function regBita(tipo, detalle, data) {
   if(!DB.bitacora) DB.bitacora = [];
-  DB.bitacora.unshift({
+  const entrada = {
     id: Date.now(),
     fecha: hoy(),
     hora: hora(),
@@ -3899,9 +3940,11 @@ function regBita(tipo, detalle, data) {
     detalle: detalle,
     data: data ? JSON.stringify(data).slice(0,200) : '',
     estado: data && data.total ? 'COBRADA $'+data.total : (data && data.monto ? 'MONTO $'+data.monto : 'registro')
-  });
+  };
+  DB.bitacora.unshift(entrada);
   if(DB.bitacora.length > 500) DB.bitacora = DB.bitacora.slice(0,500);
   saveDB();
+  if(NEGOCIO_ID) _syncSupabase('bitacora_new', entrada);
 }
 
 if(!DB.turnos) DB.turnos = [];
@@ -3909,8 +3952,7 @@ if(!DB.comps) DB.comps = [];
 if(!DB.clis) DB.clis = [];
 
 function renderBitacora() {
-  const usr = DB.usrs.find(u => u.id === (DB.usuarioActual || 1));
-  const esAdmin = !usr || usr.rol === 'Administrador';
+  const esAdmin = !_sesion || _sesion.rol === 'Administrador';
   document.getElementById('bita-acceso-denegado').style.display = esAdmin ? 'none' : 'block';
   document.getElementById('bita-contenido').style.display = esAdmin ? 'block' : 'none';
   if(!esAdmin) return;
@@ -3931,6 +3973,20 @@ function renderBitacora() {
   if(pgEl)pgEl.innerHTML=nav;
 }
 _pgRender['bita'] = renderBitacora;
+async function limpiarBitacora(){
+  if(!confirm('¿Borrar toda la bitácora? Esta acción no se puede deshacer.'))return;
+  DB.bitacora=[];
+  saveDB();
+  renderBitacora();
+  if(NEGOCIO_ID){
+    try{
+      await fetch(`${SUPABASE_URL}/rest/v1/bitacora?negocio_id=eq.${NEGOCIO_ID}`, {
+        method:'DELETE',
+        headers:{ 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+      });
+    }catch(e){console.warn('Error limpiando bitácora en Supabase:',e);}
+  }
+}
 
 // =================== IMPORTAR / EXPORTAR ===================
 function renderImportar() {}
