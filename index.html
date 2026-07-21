@@ -3338,7 +3338,7 @@ function renderCaja(){
   document.getElementById('caja-con-turno').style.display=ta?'block':'none';
   if(ta){
     document.getElementById('caja-turno-badge').textContent='🔓 Turno abierto desde '+_hora24(ta.apertura)+' · '+ta.fecha;
-    const movTurno=DB.caja.filter(function(m){return m.turnoId===ta.id;});
+    const movTurno=DB.caja.filter(function(m){return m.turnoId===ta.id||(!m.turnoId&&m.fecha===ta.fecha);});
     const venTurno=DB.ventas.filter(function(v){return v.turnoId===ta.id||(!v.turnoId&&v.fecha===ta.fecha);});
     const venTotal=venTurno.reduce(function(s,v){return s+v.total;},0);
     const venEfectivo=venTurno.filter(function(v){return v.pago==='Efectivo';}).reduce(function(s,v){return s+v.total;},0);
