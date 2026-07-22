@@ -1521,7 +1521,8 @@ async function cargarDesdeSupabase(negId) {
     items: [], // se cargan lazy si se necesitan
     sub: v.subtotal || 0, desc: v.descuento || 0, total: v.total || 0,
     vendedorNom: v.vendedor_nom || null,
-    pago: pagoMapRev[v.metodo_pago] || v.metodo_pago || 'Efectivo'
+    pago: pagoMapRev[v.metodo_pago] || v.metodo_pago || 'Efectivo',
+    _turnoUuid: v.turno_id || null
   }));
 
   // Cargar gastos (últimos 200)
@@ -1544,7 +1545,8 @@ async function cargarDesdeSupabase(negId) {
       const fh = c.created_at ? c.created_at.split('T') : [hoy(), ''];
       return {
         id: numCaja--, _uuid: c.id, fecha: fh[0] || hoy(), hora: c.hora || '',
-        tipo: c.tipo || 'entrada', desc: c.descripcion || '', monto: c.monto || 0
+        tipo: c.tipo || 'entrada', desc: c.descripcion || '', monto: c.monto || 0,
+        _turnoUuid: c.turno_id || null
       };
     });
   } catch(e) { caja = []; }
@@ -1564,6 +1566,12 @@ async function cargarDesdeSupabase(negId) {
       arqueo: {}
     }));
   } catch(e) { console.warn('Error cargando turnos:', e); }
+
+  // Reconstruir turnoId real de ventas y caja cruzando por el uuid del turno
+  const turnoUuidToId = {};
+  turnos.forEach(t => { if (t._uuid) turnoUuidToId[t._uuid] = t.id; });
+  ventas.forEach(v => { v.turnoId = v._turnoUuid ? (turnoUuidToId[v._turnoUuid] || null) : null; delete v._turnoUuid; });
+  caja.forEach(m => { m.turnoId = m._turnoUuid ? (turnoUuidToId[m._turnoUuid] || null) : null; delete m._turnoUuid; });
 
   // Cargar papelera de artículos y purgar automáticamente lo que tenga más de 15 días
   let artsPapelera = [];
@@ -1763,12 +1771,13 @@ async function _syncSupabase(tipo, data, esReintento=false) {
       await sbDelete('proveedores', data._uuid);
     } else if (tipo === 'venta_new') {
       const pagoMap = { Efectivo:'efectivo', Transferencia:'transferencia', 'Débito':'debito', QR:'qr', Crédito:'credito' };
+      const tv = (data.turnoId != null) ? DB.turnos.find(x => x.id === data.turnoId) : null;
       const res = await sbPost('ventas', {
         negocio_id: NEGOCIO_ID, fecha: data.fecha, hora: data.hora,
         cliente_nombre: data.clinom, lista_precio: data.lista,
         subtotal: data.sub, descuento: data.desc, total: data.total,
         metodo_pago: pagoMap[data.pago] || data.pago, estado: 'completada',
-        vendedor_nom: data.vendedorNom || null
+        vendedor_nom: data.vendedorNom || null, turno_id: tv ? tv._uuid : null
       });
       if (res[0]) {
         data._uuid = res[0].id;
