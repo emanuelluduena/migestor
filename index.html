@@ -176,6 +176,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
 #calc-win.minimizado #calc-hist{display:none !important;}
 #calc-win.minimizado{width:180px;}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <div id="conn-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:100000;text-align:center;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;padding:8px 12px;color:white;"></div>
@@ -1341,6 +1342,8 @@ tbody td{padding:9px 13px;vertical-align:middle;}
 const SB_URL = "https://yabschiaphpiozajnwxx.supabase.co";
 const SB_KEY = "sb_publishable_BZlDsQFy_PFTx-01ZYt7rg_FN4IqLB5";
 const ALERTAS_URL = `${SB_URL}/functions/v1/alertas-soporte`;
+const sbClient = supabase.createClient(SB_URL, SB_KEY);
+let _mensajesChannel = null;
 
 // Avisa a soporte (Slack) de un problema. Nunca debe romper el flujo normal:
 // si falla el aviso mismo, se ignora en silencio.
@@ -4459,6 +4462,21 @@ function _mapMensajeSB(m) {
   return { id: m.id, de: m.de, para: m.para, texto: m.texto, fecha: m.created_at, leido: !!m.leido, masivo: !!m.masivo };
 }
 
+function iniciarRealtimeMensajes() {
+  if (_mensajesChannel) { sbClient.removeChannel(_mensajesChannel); _mensajesChannel = null; }
+  if (!_sesion || !_sesion._uuid) return;
+  _mensajesChannel = sbClient
+    .channel('mensajes-leido-' + _sesion._uuid)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mensajes', filter: `de=eq.${_sesion._uuid}` }, function(payload){
+      const m = MENSAJES.find(function(x){ return x.id === payload.new.id; });
+      if (m) {
+        m.leido = !!payload.new.leido;
+        if (_contactoActivo === m.para) renderConversacion();
+      }
+    })
+    .subscribe();
+}
+
 async function cargarTareasYMensajes() {
   try {
     const ng = `negocio_id=eq.${NEGOCIO_ID}`;
@@ -4742,11 +4760,12 @@ function renderConversacion(){
   const cont = document.getElementById('lista-mensajes');
   cont.innerHTML = conv.map(function(m){
     const mio = m.de===_sesion._uuid;
+    const check = mio ? ('<span style="margin-left:5px;color:'+(m.leido?'#4fc3f7':'rgba(255,255,255,0.6)')+'">'+(m.leido?'✓✓':'✓')+'</span>') : '';
     return '<div style="display:flex;justify-content:'+(mio?'flex-end':'flex-start')+';margin-bottom:6px">' +
       '<div style="max-width:75%;padding:7px 11px;border-radius:12px;background:'+(mio?'var(--verde)':'white')+';color:'+(mio?'white':'var(--texto)')+';box-shadow:var(--sombra2);font-size:13px">' +
         (m.masivo?'<div style="font-size:9px;opacity:0.85;margin-bottom:2px">📢 Mensaje general</div>':'') +
         m.texto +
-        '<div style="font-size:9px;opacity:0.7;margin-top:2px">'+new Date(m.fecha).toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})+'</div>' +
+        '<div style="font-size:9px;opacity:0.7;margin-top:2px;display:flex;justify-content:flex-end;align-items:center;gap:2px">'+new Date(m.fecha).toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})+check+'</div>' +
       '</div>' +
     '</div>';
   }).join('') || '<div class="vacio" style="padding:14px"><p>Sin mensajes todavía</p></div>';
@@ -5717,6 +5736,7 @@ async function arrancarSistema() {
           const nBajo = DB.arts.filter(function(a){return a.usastk!=='no'&&a.stk<=a.stkmin;}).length;
           if(nBajo > 0) setTimeout(function(){ toast('⚠️ '+nBajo+' producto'+(nBajo!==1?'s':'')+' con stock bajo', 'a'); }, 1200);
           await cargarTareasYMensajes();
+          iniciarRealtimeMensajes();
           await cargarHorariosYFichajes();
           const hoyStr0 = hoy();
           const nTareas = TAREAS.filter(function(t){return t.fecha===hoyStr0&&!t.hecha&&(t.asignadoA===null||t.asignadoA===_sesion._uuid);}).length;
@@ -5852,6 +5872,7 @@ doLogin = async function() {
     const nBajo = DB.arts.filter(function(a){return a.usastk!=='no'&&a.stk<=a.stkmin;}).length;
     if(nBajo > 0) setTimeout(function(){ toast('⚠️ '+nBajo+' producto'+(nBajo!==1?'s':'')+' con stock bajo', 'a'); }, 1200);
     await cargarTareasYMensajes();
+    iniciarRealtimeMensajes();
     await cargarHorariosYFichajes();
     const hoyStr0 = hoy();
     const nTareas = TAREAS.filter(function(t){return t.fecha===hoyStr0&&!t.hecha&&(t.asignadoA===null||t.asignadoA===_sesion._uuid);}).length;
@@ -5872,6 +5893,7 @@ doLogin = async function() {
 const _doLogoutOriginal = doLogout;
 doLogout = function() {
   if (_heartbeatInterval) clearInterval(_heartbeatInterval);
+  if (_mensajesChannel) { sbClient.removeChannel(_mensajesChannel); _mensajesChannel = null; }
   borrarSesionActiva();
   _sesion = null;
   NEGOCIO_ID = null;
