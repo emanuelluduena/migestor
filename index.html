@@ -4474,6 +4474,22 @@ function iniciarRealtimeMensajes() {
         if (_contactoActivo === m.para) renderConversacion();
       }
     })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes', filter: `para=eq.${_sesion._uuid}` }, function(payload){
+      const nuevo = _mapMensajeSB(payload.new);
+      if (MENSAJES.find(function(x){ return x.id === nuevo.id; })) return;
+      MENSAJES.push(nuevo);
+      guardarMensajes();
+      if (_contactoActivo === nuevo.de) {
+        nuevo.leido = true;
+        renderConversacion();
+        sbPatch('mensajes', nuevo.id, { leido: true }).catch(function(e){ console.warn('No se pudo marcar como leído en Supabase:', e); });
+      }
+      renderMensajes();
+      if (!nuevo.leido) {
+        const u = DB.usrs.find(function(x){ return x._uuid === nuevo.de; });
+        toast('💬 Nuevo mensaje de ' + (u ? u.nom : 'alguien'), 'i');
+      }
+    })
     .subscribe();
 }
 
