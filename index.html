@@ -1212,9 +1212,10 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   <div class="fgrid">
     <div class="fg"><label>Nombre Completo</label><input type="text" id="usr-nom"></div>
     <div class="fg"><label>Usuario (login)</label><input type="text" id="usr-usr"></div>
-    <input type="text" name="fake-user-field" autocomplete="off" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
-<input type="password" name="fake-pass-field" autocomplete="new-password" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
-<div class="fg"><label>Contraseña</label><input type="password" id="usr-pass" name="usr-pass-real" placeholder="Dejar en blanco para no cambiarla" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')"></div>
+    <div class="fg" id="usr-pass-wrap">
+  <label>Contraseña</label>
+  <div id="usr-pass-slot"></div>
+</div>
     <div class="fg"><label>Rol</label><select id="usr-rol" onchange="aplicarPermisosPorRol()"><option>Administrador</option><option>Vendedor</option><option>Cajero</option><option>Solo Consulta</option></select></div>
   </div>
   <div style="margin-top:16px;border-top:1px solid #eee;padding-top:14px;">
@@ -1820,8 +1821,6 @@ async function _syncSupabase(tipo, data, esReintento=false) {
         rol: data.rol, activo: data.activo !== false,
         permisos: data.perms || null
       });
-      // Solo tocar la contraseña si el admin realmente escribió una nueva (campo no vacío).
-      if (data.pass) await sbRpc('set_password_usuario', { p_user_id: data._uuid, p_password: data.pass });
     } else if (tipo === 'usr_del' && data._uuid) {
       await sbDelete('usuarios', data._uuid);
     } else if (tipo === 'compra_new') {
@@ -2813,7 +2812,8 @@ function renderUsrs(){const tb=document.getElementById('tusr');tb.innerHTML=DB.u
 function abrirUsr(){
   document.getElementById('usr-id').value='';
   document.getElementById('musr-tit').textContent='Nuevo Usuario';
-  ['nom','usr','pass'].forEach(f=>document.getElementById('usr-'+f).value='');
+  ['nom','usr'].forEach(f=>document.getElementById('usr-'+f).value='');
+  document.getElementById('usr-pass-slot').innerHTML='<input type="password" id="usr-pass" placeholder="Contraseña" autocomplete="new-password">';
   document.getElementById('usr-rol').value='Vendedor';
   abrirPermisosMod(PERMISOS_ROL['Vendedor']||['inicio']);
   abrir('m-usr');
@@ -2824,20 +2824,51 @@ function editUsr(id){
   document.getElementById('musr-tit').textContent='Editar Usuario';
   document.getElementById('usr-nom').value=u.nom;
   document.getElementById('usr-usr').value=u.usr;
-  document.getElementById('usr-pass').value='';
+  document.getElementById('usr-pass-slot').innerHTML='<button type="button" class="btn bg bsm" onclick="mostrarCampoPass()">🔒 Cambiar contraseña</button>';
   document.getElementById('usr-rol').value=u.rol;
   abrirPermisosMod(getPermsUsuario(u));
   abrir('m-usr');
 }
+function mostrarCampoPass(){
+  document.getElementById('usr-pass-slot').innerHTML =
+    '<div style="display:flex;gap:6px">'+
+    '<input type="password" id="usr-pass-nuevo" placeholder="Nueva contraseña" autocomplete="new-password" style="flex:1">'+
+    '<button type="button" class="btn bv bsm" onclick="guardarPasswordUsr()">Guardar</button>'+
+    '</div>';
+  document.getElementById('usr-pass-nuevo').focus();
+}
+
+async function guardarPasswordUsr(){
+  const eid=document.getElementById('usr-id').value;
+  const nueva=document.getElementById('usr-pass-nuevo').value;
+  if(!nueva){toast('Escribí una contraseña','a');return;}
+  const u=DB.usrs.find(x=>x.id==eid);
+  if(!u){toast('Usuario no encontrado','r');return;}
+  u.pass=nueva;
+  saveDB();
+  if(NEGOCIO_ID && u._uuid){
+    try{
+      await sbRpc('set_password_usuario', {p_user_id:u._uuid, p_password:nueva});
+      toast('Contraseña actualizada','v');
+    }catch(e){
+      toast('Error al actualizar la contraseña','r');
+      return;
+    }
+  } else {
+    toast('Contraseña actualizada (local)','v');
+  }
+  document.getElementById('usr-pass-slot').innerHTML='<button type="button" class="btn bg bsm" onclick="mostrarCampoPass()">🔒 Cambiar contraseña</button>';
+}
 function guardarUsr(){
   const nom=document.getElementById('usr-nom').value.trim(),usr=document.getElementById('usr-usr').value.trim();
   if(!nom||!usr){toast('Completá nombre y usuario','a');return;}
-  const passInput=document.getElementById('usr-pass').value;
   const eid=document.getElementById('usr-id').value;
+  const passEl=document.getElementById('usr-pass'); // solo existe si es usuario NUEVO
+  const passInput=passEl?passEl.value:'';
   if(!eid && !passInput){toast('Completá una contraseña para el nuevo usuario','a');return;}
   const perms=leerPermisosForm();
   const d={nom,usr,rol:document.getElementById('usr-rol').value,activo:true,perms:perms};
-  if(passInput) d.pass=passInput;
+  if(!eid && passInput) d.pass=passInput; // la contraseña de un usuario EXISTENTE nunca se toca acá
   if(eid){const i=DB.usrs.findIndex(x=>x.id==eid);if(i>=0)DB.usrs[i]={...DB.usrs[i],...d};}
   else{d.id=nid('usr');DB.usrs.push(d);}
   saveDB();cerrar('m-usr');renderUsrs();
