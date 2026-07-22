@@ -1506,7 +1506,8 @@ async function cargarDesdeSupabase(negId) {
     nom: u.nombre, usr: u.username || u.usuario || '',
     pass: u.password_hash || '',
     rol: u.rol || 'Vendedor',
-    activo: u.activo !== false
+    activo: u.activo !== false,
+    perms: Array.isArray(u.permisos) ? u.permisos : null
   }));
 
   // Cargar ventas (últimas 500)
@@ -1802,7 +1803,8 @@ async function _syncSupabase(tipo, data, esReintento=false) {
     } else if (tipo === 'usr_new') {
       const res = await sbPost('usuarios', {
         negocio_id: NEGOCIO_ID, nombre: data.nom, username: data.usr,
-        password_hash: data.pass, rol: data.rol, activo: data.activo !== false
+        password_hash: data.pass, rol: data.rol, activo: data.activo !== false,
+        permisos: data.perms || null
       });
       if (res[0]) {
         data._uuid = res[0].id;
@@ -1813,7 +1815,8 @@ async function _syncSupabase(tipo, data, esReintento=false) {
     } else if (tipo === 'usr_update' && data._uuid) {
       await sbPatch('usuarios', data._uuid, {
         nombre: data.nom, username: data.usr,
-        rol: data.rol, activo: data.activo !== false
+        rol: data.rol, activo: data.activo !== false,
+        permisos: data.perms || null
       });
       // Solo tocar la contraseña si el admin realmente escribió una nueva (campo no vacío).
       if (data.pass) await sbRpc('set_password_usuario', { p_user_id: data._uuid, p_password: data.pass });
