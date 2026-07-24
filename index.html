@@ -1342,7 +1342,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
 const SB_URL = "https://yabschiaphpiozajnwxx.supabase.co";
 const SB_KEY = "sb_publishable_BZlDsQFy_PFTx-01ZYt7rg_FN4IqLB5";
 const ALERTAS_URL = `${SB_URL}/functions/v1/alertas-soporte`;
-const sbClient = supabase.createClient(SB_URL, SB_KEY);
+const sbClient = (typeof supabase !== 'undefined') ? supabase.createClient(SB_URL, SB_KEY) : null;
 let _mensajesChannel = null;
 
 // Avisa a soporte (Slack) de un problema. Nunca debe romper el flujo normal:
@@ -1754,9 +1754,10 @@ async function _syncSupabase(tipo, data, esReintento=false) {
       if (res[0]) data._uuid = res[0].id;
     } else if (tipo === 'turno_close' && data._uuid) {
       await sbPatch('turnos', data._uuid, {
-        fecha_cierre: new Date().toISOString(),
+        fecha_cierre: data.fechaCierreISO || new Date().toISOString(),
         hora_cierre: data.cierre,
-        observaciones: data.obs || null
+        observaciones: data.obs || null,
+        estado: 'cerrado'
       });
     } else if (tipo === 'art_soft_del' && data._uuid) {
       await sbPatch('articulos', data._uuid, { eliminado_en: data.eliminadoEn });
@@ -2182,7 +2183,10 @@ const _nf = new Intl.NumberFormat('es-AR', {minimumFractionDigits:0, maximumFrac
 const _rd500 = n => { const v = parseFloat(n)||0; return v === 0 ? 0 : Math.ceil(v/50)*50; };
 const _df = new Intl.DateTimeFormat('es-AR');
 const fmt = n => '$' + _nf.format(_rd500(n));
-const hoy = () => new Date().toISOString().split('T')[0];
+const hoy = () => {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+};
 const hora = () => new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false});
 // Normaliza cualquier hora guardada (vieja con "a. m./p. m." o nueva en 24hs) para mostrarla siempre en 24hs
 // Número de venta dentro del día (1, 2, 3...), no el id interno del sistema
@@ -3603,6 +3607,7 @@ function confirmarCierreTurno(){
     arqueo[inp.dataset.pago]=parseFloat(inp.value)||0;
   });
   ta.cierre=hora();
+  ta.fechaCierreISO=new Date().toISOString();
   ta.obs=document.getElementById('arqueo-obs').value.trim();
   ta.arqueo=arqueo;
   saveDB('turno_close', ta);cerrar('m-arqueo');renderCaja();
@@ -4463,6 +4468,7 @@ function _mapMensajeSB(m) {
 }
 
 function iniciarRealtimeMensajes() {
+  if (!sbClient) return;
   if (_mensajesChannel) { sbClient.removeChannel(_mensajesChannel); _mensajesChannel = null; }
   if (!_sesion || !_sesion._uuid) return;
   _mensajesChannel = sbClient
