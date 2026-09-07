@@ -239,6 +239,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   <button class="tab" onclick="irA('tareas')" data-tab="tareas"><span class="ti">✅</span>Tareas<span id="badge-tareas" class="tab-badge" style="display:none"></span></button>
   <button class="tab" onclick="irA('mensajes')" data-tab="mensajes"><span class="ti">💬</span>Mensajes<span id="badge-mensajes" class="tab-badge" style="display:none"></span></button>
   <button class="tab" onclick="irA('etiquetas')" data-tab="etiquetas"><span class="ti">🏷️</span>Etiquetas</button>
+  <button class="tab" onclick="irA('fidelizacion')" data-tab="fidelizacion"><span class="ti">🎁</span>Fidelización</button>
   <button class="tab" onclick="irA('horarios')" data-tab="horarios"><span class="ti">🕒</span>Horarios</button>
 </nav>
 <main>
@@ -344,7 +345,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
       <span class="hint">Ins=Nuevo · F2=Editar sel.</span>
     </div>
     <div class="twrap"><table>
-      <thead><tr><th>#</th><th>Nombre</th><th>DNI/CUIT</th><th>Teléfono</th><th>Lista</th><th>Saldo C/C</th><th>Acciones</th></tr></thead>
+      <thead><tr><th>#</th><th>Nombre</th><th>DNI/CUIT</th><th>Teléfono</th><th>Lista</th><th>🎁 Puntos</th><th>Saldo C/C</th><th>Acciones</th></tr></thead>
       <tbody id="tcli"></tbody>
     </table></div>
   </div>
@@ -456,6 +457,13 @@ tbody td{padding:9px 13px;vertical-align:middle;}
             <div id="combinado-filas" style="margin-top:6px;display:flex;flex-direction:column;gap:5px"></div>
             <div style="margin-top:6px;font-size:12px;color:var(--gris)">Restante: <strong id="combinado-restante" style="color:var(--verde)">$0</strong></div>
           </div>
+        </div>
+        <div class="fg" id="fid-venta-wrap" style="display:none;margin-bottom:9px;background:var(--crema);border-radius:8px;padding:8px 12px">
+          <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:13px;color:var(--verde);font-weight:600">
+            <input type="checkbox" id="fid-venta-check" onchange="fidToggleVenta()"> 🎁 Sumar puntos de fidelización
+          </label>
+          <div id="fid-venta-cliente-info" style="font-size:12px;color:var(--gris);margin-top:4px"></div>
+          <button class="btn bt bsm" style="margin-top:6px" onclick="abrirCanjePremioVenta()">🎁 Canjear premio</button>
         </div>
         <button class="btn bv" id="bcobrar" style="width:100%;justify-content:center;font-size:15px;padding:11px" onclick="iniciarCobro()">💳 Cobrar [F4/Enter]</button>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px">
@@ -1042,6 +1050,41 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   </div>
 </div>
 
+<div id="mod-fidelizacion" class="modulo">
+  <div class="panel">
+    <div class="ptit">🎁 Fidelización</div>
+    <div class="brow">
+      <button class="btn bv bsm" id="subtab-fidcfg-btn" onclick="fidSubTab('config')">⚙️ Configuración</button>
+      <button class="btn bg bsm" id="subtab-fidpremios-btn" onclick="fidSubTab('premios')">🎁 Premios</button>
+    </div>
+  </div>
+
+  <div id="panel-fidcfg" class="panel">
+    <div class="alert aa" style="margin-bottom:14px;font-size:13px">Acá definís dos cosas separadas: cuántos puntos suma el cliente al comprar, y cuánto vale cada punto en pesos (esto último sirve solo como referencia para sugerir el costo de los premios — vos siempre podés pisarlo a mano).</div>
+    <div class="fgrid" style="grid-template-columns:1fr 1fr">
+      <div class="fg"><label>Cada cuántos pesos gastados...</label><input type="number" id="fid-monto" min="1" placeholder="Ej: 100"></div>
+      <div class="fg"><label>...suma esta cantidad de puntos</label><input type="number" id="fid-puntos" min="0.01" step="0.01" placeholder="Ej: 1"></div>
+      <div class="fg"><label>Valor de referencia de 1 punto ($)</label><input type="number" id="fid-valorpunto" min="0.01" step="0.01" placeholder="Ej: 50"></div>
+      <div class="fg"><label>Estado</label>
+        <select id="fid-activo"><option value="si">Activo</option><option value="no">Desactivado</option></select>
+      </div>
+    </div>
+    <div id="fid-ejemplo" style="font-size:13px;color:var(--gris);margin:4px 0 14px"></div>
+    <button class="btn bv" onclick="fidGuardarConfig()">💾 Guardar configuración</button>
+    <span id="fid-cfg-estado" style="font-size:13px;color:#888;margin-left:10px"></span>
+  </div>
+
+  <div id="panel-fidpremios" class="panel" style="display:none">
+    <div class="brow" style="margin-bottom:14px">
+      <button class="btn bv" onclick="abrirPremio()">➕ Nuevo premio</button>
+    </div>
+    <div class="twrap"><table>
+      <thead><tr><th>Premio</th><th>Origen</th><th>Costo real</th><th>Costo en puntos</th><th>Acciones</th></tr></thead>
+      <tbody id="tfidpremios"></tbody>
+    </table></div>
+  </div>
+</div>
+
 <div id="mod-horarios" class="modulo">
   <div class="panel">
     <div class="ptit">🕒 Horarios y Fichaje</div>
@@ -1310,6 +1353,77 @@ tbody td{padding:9px 13px;vertical-align:middle;}
     <div class="fg"><label>Lista por defecto</label><select id="cli-lista"><option value="lista1">Lista 1</option><option value="lista2">Lista 2</option><option value="lista3">Lista 3</option><option value="mayor">Por Mayor</option></select></div>
   </div>
   <div class="mfoot"><button class="btn bg" onclick="cerrar('m-cli')">Cancelar</button><button class="btn bv" onclick="guardarCli()">💾 Guardar</button></div>
+</div></div>
+
+<div class="moverlay" id="m-premio"><div class="modal">
+  <h2>🎁 <span id="mpremio-tit">Nuevo Premio</span></h2>
+  <input type="hidden" id="premio-id">
+  <input type="hidden" id="premio-articulo-uuid">
+  <div class="fg" style="margin-bottom:10px">
+    <label>Origen</label>
+    <div class="brow" style="margin:4px 0">
+      <button class="btn bv bsm" id="premio-origen-btn-custom" onclick="fidSetOrigen('custom')">✏️ Personalizado</button>
+      <button class="btn bg bsm" id="premio-origen-btn-art" onclick="fidSetOrigen('art')">📦 Desde Artículos</button>
+    </div>
+  </div>
+  <div id="premio-buscador-wrap" style="display:none;margin-bottom:10px">
+    <input type="text" id="premio-buscador" placeholder="Buscar artículo por nombre o código..." oninput="fidBuscarArticulo()" style="width:100%;border:1.5px solid #e5e7eb;border-radius:8px;padding:8px 10px;font-size:14px">
+    <div id="premio-resultados" style="margin-top:6px;max-height:160px;overflow:auto"></div>
+    <div id="premio-art-seleccionado" style="font-size:13px;color:var(--verde);margin-top:6px;display:none"></div>
+  </div>
+  <div class="fgrid">
+    <div class="fg"><label>Nombre del premio</label><input type="text" id="premio-nom"></div>
+    <div class="fg"><label>Costo real ($, referencia)</label><input type="number" id="premio-costoref" min="0" step="0.01"></div>
+    <div class="fg"><label>Costo en puntos</label><input type="number" id="premio-costopts" min="0" step="0.01"></div>
+  </div>
+  <div id="premio-sugerencia" style="font-size:12px;color:#888;margin-top:-6px;margin-bottom:10px"></div>
+  <div class="mfoot"><button class="btn bg" onclick="cerrar('m-premio')">Cancelar</button><button class="btn bv" onclick="guardarPremio()">💾 Guardar</button></div>
+</div></div>
+
+<div class="moverlay" id="m-fid-cliente"><div class="modal" style="max-width:420px">
+  <h2>🎁 Cliente para sumar puntos</h2>
+  <div class="fg" style="margin-bottom:10px">
+    <label>Buscar por DNI o nombre</label>
+    <input type="text" id="fidcli-buscar" placeholder="DNI o nombre..." oninput="fidBuscarClienteVenta()" autocomplete="off">
+  </div>
+  <div id="fidcli-resultados" style="margin-bottom:10px;max-height:180px;overflow:auto"></div>
+  <div class="mfoot"><button class="btn bg" onclick="fidCancelarSumar()">Cancelar</button><button class="btn bv" onclick="fidAbrirNuevoClienteDesdeVenta()">➕ Cargar cliente nuevo</button></div>
+</div></div>
+
+<div class="moverlay" id="m-fid-ajuste"><div class="modal" style="max-width:400px">
+  <h2>🎁 Ajustar puntos</h2>
+  <input type="hidden" id="ajuste-cli-id">
+  <div style="font-weight:700;color:var(--verde);margin-bottom:4px" id="ajuste-cli-nom"></div>
+  <div style="font-size:12px;color:var(--gris);margin-bottom:14px" id="ajuste-cli-actual"></div>
+  <div class="fg" style="margin-bottom:10px">
+    <label>Cantidad (positivo para sumar, negativo para restar)</label>
+    <input type="number" id="ajuste-cantidad" placeholder="Ej: 10 o -5" step="1">
+  </div>
+  <div class="fg" style="margin-bottom:8px">
+    <label>Motivo (opcional)</label>
+    <input type="text" id="ajuste-nota" placeholder="Ej: corrección, carga inicial...">
+  </div>
+  <div class="mfoot"><button class="btn bg" onclick="cerrar('m-fid-ajuste')">Cancelar</button><button class="btn bv" onclick="guardarAjustePuntos()">💾 Guardar</button></div>
+</div></div>
+
+<div class="moverlay" id="m-fid-canje-venta"><div class="modal" style="max-width:420px">
+  <h2>🎁 Canjear premio</h2>
+  <div id="fid-canje-venta-lista" style="max-height:280px;overflow:auto"></div>
+  <div class="mfoot"><button class="btn bg" onclick="cerrar('m-fid-canje-venta')">Cerrar</button></div>
+</div></div>
+
+<div class="moverlay" id="m-fid-canje-libre"><div class="modal" style="max-width:420px">
+  <h2>🎁 Canjear premio</h2>
+  <input type="hidden" id="canjelibre-premio-id">
+  <div style="font-weight:700;color:var(--verde);margin-bottom:4px" id="canjelibre-premio-nom"></div>
+  <div style="font-size:12px;color:var(--gris);margin-bottom:14px" id="canjelibre-premio-costo"></div>
+  <div class="fg" style="margin-bottom:10px">
+    <label>Buscar cliente por DNI o nombre</label>
+    <input type="text" id="canjelibre-buscar" placeholder="DNI o nombre..." oninput="fidBuscarClienteCanjeLibre()" autocomplete="off">
+  </div>
+  <div id="canjelibre-resultados" style="margin-bottom:10px;max-height:160px;overflow:auto"></div>
+  <div id="canjelibre-seleccionado" style="display:none;background:var(--crema);border-radius:8px;padding:10px;margin-bottom:12px"></div>
+  <div class="mfoot"><button class="btn bg" onclick="cerrar('m-fid-canje-libre')">Cancelar</button><button class="btn bv" id="canjelibre-btn-confirmar" style="display:none" onclick="confirmarCanjeLibre()">✅ Confirmar canje</button></div>
 </div></div>
 
 <div class="moverlay" id="m-usr"><div class="modal" style="max-width:640px">
@@ -1603,7 +1717,7 @@ async function cargarDesdeSupabase(negId) {
     const num = numCli++;
     _cliUUIDtoNum[c.id] = num;
     _cliNumtoUUID[num] = c.id;
-    return { id: num, _uuid: c.id, nom: c.nombre || '', dni: c.dni || '', tel: c.telefono || '', email: c.email || '', dir: c.direccion || '', lista: c.lista_precio || 'lista1' };
+    return { id: num, _uuid: c.id, nom: c.nombre || '', dni: c.dni || '', tel: c.telefono || '', email: c.email || '', dir: c.direccion || '', lista: c.lista_precio || 'lista1', puntos: c.puntos || 0 };
   });
 
   // Cargar artículos en lotes para superar el límite de 1000 (solo activos, no papelera)
@@ -2180,12 +2294,12 @@ const MODS_NOMBRES = {
   ventas:'Ventas', caja:'Caja', estadisticas:'Estadísticas',
   gastos:'Gastos', contabilidad:'Contabilidad', precios:'Precios',
   config:'Configuración', bitacora:'Bitácora', importar:'Importar/Export.',
-  asistente:'Asistente IA', tareas:'Tareas', mensajes:'Mensajes', horarios:'Horarios', etiquetas:'Etiquetas'
+  asistente:'Asistente IA', tareas:'Tareas', mensajes:'Mensajes', horarios:'Horarios', etiquetas:'Etiquetas', fidelizacion:'Fidelización'
 };
 const PERMISOS_ROL = {
   'Administrador': Object.keys(MODS_NOMBRES),
-  'Vendedor':      ['inicio','ventas','articulos','clientes','proveedores','precios','asistente','tareas','mensajes','horarios','etiquetas'],
-  'Cajero':        ['inicio','ventas','caja','asistente','tareas','mensajes','horarios'],
+  'Vendedor':      ['inicio','ventas','articulos','clientes','proveedores','precios','asistente','tareas','mensajes','horarios','etiquetas','fidelizacion'],
+  'Cajero':        ['inicio','ventas','caja','asistente','tareas','mensajes','horarios','fidelizacion'],
   'Solo Consulta': ['inicio','articulos','estadisticas','precios','asistente','tareas','mensajes','horarios']
 };
 
@@ -2497,6 +2611,588 @@ function renderMod(tab) {
   else if(tab==='mensajes') renderMensajes();
   else if(tab==='horarios') renderHorarios();
   else if(tab==='etiquetas') renderEtiquetas();
+  else if(tab==='fidelizacion') renderFidelizacion();
+}
+
+// ═══════════════════════ FIDELIZACIÓN ═══════════════════════
+let _fidConfig = null;   // fila de fidelizacion_config (o null si no existe todavía)
+let _fidPremios = [];
+let _fidSubTab = 'config';
+let _fidOrigen = 'custom'; // 'custom' | 'art'
+let _fidConfigCargada = false; // evita re-pedir la config a Supabase en cada venta
+let _fidPendienteAsignar = false; // true mientras se está cargando un cliente nuevo desde Ventas
+let _fidPremiosCargados = false; // evita re-pedir el catálogo de premios a cada rato
+let _fidPremioPendienteCanje = null; // premio elegido en Ventas que espera a que se elija/cargue el cliente
+let _canjeLibreCliId = null; // cliente elegido en el canje libre desde Fidelización
+
+function fidSubTab(tab){
+  _fidSubTab = tab;
+  document.getElementById('panel-fidcfg').style.display = tab==='config' ? '' : 'none';
+  document.getElementById('panel-fidpremios').style.display = tab==='premios' ? '' : 'none';
+  document.getElementById('subtab-fidcfg-btn').className = 'btn '+(tab==='config'?'bv':'bg')+' bsm';
+  document.getElementById('subtab-fidpremios-btn').className = 'btn '+(tab==='premios'?'bv':'bg')+' bsm';
+  if(tab==='premios') fidCargarPremios();
+}
+
+function renderFidelizacion(){
+  fidSubTab(_fidSubTab);
+  fidCargarConfig();
+  document.getElementById('fid-monto').oninput = fidPreviewEjemplo;
+  document.getElementById('fid-puntos').oninput = fidPreviewEjemplo;
+}
+
+function fidPreviewEjemplo(){
+  const m = parseFloat(document.getElementById('fid-monto').value) || 0;
+  const p = parseFloat(document.getElementById('fid-puntos').value) || 0;
+  const el = document.getElementById('fid-ejemplo');
+  el.textContent = (m>0 && p>0) ? ('Ejemplo: una compra de '+fmt(m)+' suma '+p+' punto(s) al cliente.') : '';
+}
+
+async function fidCargarConfig(){
+  try{
+    const rows = await sbGet('fidelizacion_config', `negocio_id=eq.${NEGOCIO_ID}&limit=1`);
+    if(rows && rows.length){
+      _fidConfig = rows[0];
+      document.getElementById('fid-monto').value = _fidConfig.monto_por_punto;
+      document.getElementById('fid-puntos').value = _fidConfig.puntos_otorgados;
+      document.getElementById('fid-valorpunto').value = _fidConfig.valor_punto;
+      document.getElementById('fid-activo').value = _fidConfig.activo ? 'si' : 'no';
+    } else {
+      _fidConfig = null;
+      document.getElementById('fid-monto').value = 100;
+      document.getElementById('fid-puntos').value = 1;
+      document.getElementById('fid-valorpunto').value = 1;
+      document.getElementById('fid-activo').value = 'si';
+    }
+    fidPreviewEjemplo();
+  }catch(e){
+    console.error('Error cargando configuración de fidelización:', e);
+    toast('No se pudo cargar la configuración de Fidelización', 'r');
+  }
+  _fidConfigCargada = true;
+  fidActualizarVisibilidadVenta();
+}
+
+function fidActualizarVisibilidadVenta(){
+  const wrap = document.getElementById('fid-venta-wrap');
+  if(!wrap) return;
+  wrap.style.display = (_fidConfig && _fidConfig.activo) ? '' : 'none';
+}
+
+async function fidAsegurarConfigCargada(){
+  if(_fidConfigCargada) return;
+  await fidCargarConfig();
+}
+
+function fidCalcularPuntos(total){
+  if(!_fidConfig || !_fidConfig.activo) return 0;
+  const monto = _fidConfig.monto_por_punto || 0;
+  const otorgados = _fidConfig.puntos_otorgados || 0;
+  if(monto<=0 || otorgados<=0) return 0;
+  return Math.floor((total||0)/monto) * otorgados;
+}
+
+async function fidGuardarConfig(){
+  const monto = parseFloat(document.getElementById('fid-monto').value) || 0;
+  const puntos = parseFloat(document.getElementById('fid-puntos').value) || 0;
+  const valorPunto = parseFloat(document.getElementById('fid-valorpunto').value) || 0;
+  const activo = document.getElementById('fid-activo').value === 'si';
+  if(monto<=0 || puntos<=0){ toast('Completá el monto y los puntos otorgados', 'a'); return; }
+  const estado = document.getElementById('fid-cfg-estado');
+  estado.textContent = 'Guardando...';
+  const body = { negocio_id: NEGOCIO_ID, monto_por_punto: monto, puntos_otorgados: puntos, valor_punto: valorPunto, activo, updated_at: new Date().toISOString() };
+  try{
+    if(_fidConfig && _fidConfig.id){
+      const res = await sbPatch('fidelizacion_config', _fidConfig.id, body);
+      if(res && res[0]) _fidConfig = res[0];
+    } else {
+      const res = await sbPost('fidelizacion_config', body);
+      if(res && res[0]) _fidConfig = res[0];
+    }
+    estado.textContent = 'Guardado ✓';
+    setTimeout(function(){ estado.textContent=''; }, 2500);
+  }catch(e){
+    console.error('Error guardando configuración de fidelización:', e);
+    estado.textContent = '';
+    toast('Error al guardar la configuración', 'r');
+  }
+}
+
+async function fidCargarPremios(){
+  try{
+    _fidPremios = await sbGet('fidelizacion_premios', `negocio_id=eq.${NEGOCIO_ID}&activo=eq.true&order=created_at.desc`);
+  }catch(e){
+    console.error('Error cargando premios:', e);
+    _fidPremios = [];
+  }
+  _fidPremiosCargados = true;
+  fidRenderPremios();
+}
+
+async function fidAsegurarPremiosCargados(){
+  if(_fidPremiosCargados) return;
+  await fidCargarPremios();
+}
+
+function fidRenderPremios(){
+  const tb = document.getElementById('tfidpremios');
+  if(!tb) return;
+  if(!_fidPremios.length){
+    tb.innerHTML = '<tr><td colspan="5"><div class="vacio"><div class="vi">🎁</div><p>Sin premios cargados</p></div></td></tr>';
+    return;
+  }
+  tb.innerHTML = _fidPremios.map(function(p){
+    const origen = p.articulo_id ? '📦 Desde Artículos' : '✏️ Personalizado';
+    const costoRef = (p.costo_referencia!=null) ? fmt(p.costo_referencia) : '-';
+    return '<tr><td><strong>'+p.nombre+'</strong></td><td>'+origen+'</td><td>'+costoRef+'</td><td>'+p.costo_puntos+' pts</td>'+
+      '<td><button class="btn bg bsm" onclick="editPremio(\''+p.id+'\')">✏️</button> <button class="btn bt bsm" onclick="abrirCanjeLibre(\''+p.id+'\')">🎁 Canjear</button> <button class="btn br bsm" onclick="delPremio(\''+p.id+'\')">🗑️</button></td></tr>';
+  }).join('');
+}
+
+function fidSetOrigen(origen){
+  _fidOrigen = origen;
+  document.getElementById('premio-origen-btn-custom').className = 'btn '+(origen==='custom'?'bv':'bg')+' bsm';
+  document.getElementById('premio-origen-btn-art').className = 'btn '+(origen==='art'?'bv':'bg')+' bsm';
+  document.getElementById('premio-buscador-wrap').style.display = origen==='art' ? '' : 'none';
+  if(origen==='custom'){
+    document.getElementById('premio-articulo-uuid').value = '';
+    document.getElementById('premio-art-seleccionado').style.display = 'none';
+    document.getElementById('premio-costoref').readOnly = false;
+  }
+}
+
+function fidBuscarArticulo(){
+  const q = document.getElementById('premio-buscador').value.trim().toLowerCase();
+  const cont = document.getElementById('premio-resultados');
+  if(!q){ cont.innerHTML=''; return; }
+  const encontrados = DB.arts.filter(function(a){
+    return a.nom.toLowerCase().includes(q) || a.cod.toLowerCase().includes(q);
+  }).slice(0,8);
+  if(!encontrados.length){ cont.innerHTML='<div style="font-size:13px;color:#888">Sin resultados</div>'; return; }
+  cont.innerHTML = encontrados.map(function(a){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--crema);border-radius:6px;margin-bottom:4px">'+
+      '<span style="font-size:13px">'+a.nom+' <span class="bdg bv2">'+a.cod+'</span> · costo '+fmt(a.cos||0)+'</span>'+
+      '<button class="btn bv bsm" onclick="fidSeleccionarArticulo('+a.id+')">Elegir</button></div>';
+  }).join('');
+}
+
+function fidSeleccionarArticulo(artId){
+  const art = DB.arts.find(function(a){ return a.id===artId; });
+  if(!art) return;
+  const uuid = _artNumtoUUID[art.id];
+  document.getElementById('premio-articulo-uuid').value = uuid || '';
+  document.getElementById('premio-nom').value = document.getElementById('premio-nom').value || art.nom;
+  document.getElementById('premio-costoref').value = art.cos || 0;
+  document.getElementById('premio-costoref').readOnly = true;
+  const sel = document.getElementById('premio-art-seleccionado');
+  sel.style.display = '';
+  sel.textContent = 'Elegido: '+art.nom+' (costo real: '+fmt(art.cos||0)+')';
+  document.getElementById('premio-resultados').innerHTML = '';
+  document.getElementById('premio-buscador').value = '';
+  fidSugerirCostoPuntos();
+}
+
+function fidSugerirCostoPuntos(){
+  const costoRef = parseFloat(document.getElementById('premio-costoref').value) || 0;
+  const valorPunto = (_fidConfig && _fidConfig.valor_punto) || parseFloat(document.getElementById('fid-valorpunto').value) || 0;
+  const sugerido = document.getElementById('premio-sugerencia');
+  if(costoRef>0 && valorPunto>0){
+    const pts = Math.ceil(costoRef / valorPunto);
+    sugerido.textContent = 'Sugerencia según costo y valor de punto: '+pts+' puntos. Podés editarlo arriba.';
+    if(!document.getElementById('premio-costopts').value) document.getElementById('premio-costopts').value = pts;
+  } else {
+    sugerido.textContent = '';
+  }
+}
+
+function abrirPremio(){
+  document.getElementById('premio-id').value='';
+  document.getElementById('premio-articulo-uuid').value='';
+  document.getElementById('mpremio-tit').textContent='Nuevo Premio';
+  document.getElementById('premio-nom').value='';
+  document.getElementById('premio-costoref').value='';
+  document.getElementById('premio-costoref').readOnly=false;
+  document.getElementById('premio-costopts').value='';
+  document.getElementById('premio-buscador').value='';
+  document.getElementById('premio-resultados').innerHTML='';
+  document.getElementById('premio-art-seleccionado').style.display='none';
+  document.getElementById('premio-sugerencia').textContent='';
+  fidSetOrigen('custom');
+  abrir('m-premio');
+}
+
+function editPremio(id){
+  const p = _fidPremios.find(function(x){ return x.id===id; });
+  if(!p) return;
+  document.getElementById('premio-id').value = p.id;
+  document.getElementById('premio-articulo-uuid').value = p.articulo_id || '';
+  document.getElementById('mpremio-tit').textContent = 'Editar Premio';
+  document.getElementById('premio-nom').value = p.nombre;
+  document.getElementById('premio-costoref').value = p.costo_referencia!=null ? p.costo_referencia : '';
+  document.getElementById('premio-costopts').value = p.costo_puntos;
+  document.getElementById('premio-buscador').value='';
+  document.getElementById('premio-resultados').innerHTML='';
+  document.getElementById('premio-sugerencia').textContent='';
+  if(p.articulo_id){
+    fidSetOrigen('art');
+    document.getElementById('premio-costoref').readOnly = true;
+    const sel = document.getElementById('premio-art-seleccionado');
+    sel.style.display='';
+    sel.textContent = 'Vinculado a un artículo (costo real: '+fmt(p.costo_referencia||0)+')';
+  } else {
+    fidSetOrigen('custom');
+  }
+  abrir('m-premio');
+}
+
+async function guardarPremio(){
+  const nombre = document.getElementById('premio-nom').value.trim();
+  const costoPts = parseFloat(document.getElementById('premio-costopts').value);
+  if(!nombre){ toast('Ingresá el nombre del premio', 'a'); return; }
+  if(!(costoPts>=0)){ toast('Ingresá el costo en puntos', 'a'); return; }
+  const costoRefVal = document.getElementById('premio-costoref').value;
+  const body = {
+    negocio_id: NEGOCIO_ID,
+    articulo_id: document.getElementById('premio-articulo-uuid').value || null,
+    nombre,
+    costo_puntos: costoPts,
+    costo_referencia: costoRefVal!=='' ? parseFloat(costoRefVal) : null,
+    activo: true,
+    updated_at: new Date().toISOString()
+  };
+  const eid = document.getElementById('premio-id').value;
+  try{
+    if(eid){
+      await sbPatch('fidelizacion_premios', eid, body);
+    } else {
+      await sbPost('fidelizacion_premios', body);
+    }
+    cerrar('m-premio');
+    fidCargarPremios();
+    toast('Premio guardado', 'v');
+  }catch(e){
+    console.error('Error guardando premio:', e);
+    toast('Error al guardar el premio', 'r');
+  }
+}
+
+async function delPremio(id){
+  if(!await confirmar('¿Eliminar este premio del catálogo?')) return;
+  try{
+    await sbPatch('fidelizacion_premios', id, { activo: false });
+    fidCargarPremios();
+  }catch(e){
+    console.error('Error eliminando premio:', e);
+    toast('Error al eliminar', 'r');
+  }
+}
+
+// ── Sumar puntos desde Ventas ──
+function fidToggleVenta(){
+  const chk = document.getElementById('fid-venta-check');
+  if(chk.checked){
+    const cliId = document.getElementById('pvcli').value;
+    if(!cliId){ abrirBuscarClienteVenta(); return; }
+    fidActualizarInfoVenta();
+  } else {
+    document.getElementById('fid-venta-cliente-info').textContent='';
+  }
+}
+
+function fidActualizarInfoVenta(){
+  const chk = document.getElementById('fid-venta-check');
+  const info = document.getElementById('fid-venta-cliente-info');
+  if(!chk || !info || !chk.checked) return;
+  const cliId = document.getElementById('pvcli').value;
+  const c = DB.clis.find(function(x){ return x.id==cliId; });
+  info.textContent = c ? ('Sumando puntos a: '+c.nom+' (tiene '+(c.puntos||0)+' pts)') : 'Elegí un cliente para sumar puntos.';
+}
+
+function abrirBuscarClienteVenta(){
+  document.getElementById('fidcli-buscar').value='';
+  document.getElementById('fidcli-resultados').innerHTML='';
+  abrir('m-fid-cliente');
+  setTimeout(function(){document.getElementById('fidcli-buscar').focus();},100);
+}
+
+function fidCancelarSumar(){
+  cerrar('m-fid-cliente');
+  _fidPremioPendienteCanje = null;
+  const chk = document.getElementById('fid-venta-check');
+  if(chk && !document.getElementById('pvcli').value) chk.checked=false;
+  fidActualizarInfoVenta();
+}
+
+function fidBuscarClienteVenta(){
+  const q = document.getElementById('fidcli-buscar').value.trim().toLowerCase();
+  const cont = document.getElementById('fidcli-resultados');
+  if(!q){ cont.innerHTML=''; return; }
+  const encontrados = DB.clis.filter(function(c){
+    return c.nom.toLowerCase().includes(q) || (c.dni||'').toLowerCase().includes(q);
+  }).slice(0,8);
+  if(!encontrados.length){ cont.innerHTML='<div style="font-size:13px;color:#888">Sin resultados — probá cargarlo como cliente nuevo</div>'; return; }
+  cont.innerHTML = encontrados.map(function(c){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--crema);border-radius:6px;margin-bottom:4px">'+
+      '<span style="font-size:13px">'+c.nom+(c.dni?(' · DNI '+c.dni):'')+' · <span class="bdg bt2">🎁 '+(c.puntos||0)+'</span></span>'+
+      '<button class="btn bv bsm" onclick="fidAsignarClienteVenta('+c.id+')">Elegir</button></div>';
+  }).join('');
+}
+
+function fidAsignarClienteVenta(cliId){
+  document.getElementById('pvcli').value = cliId;
+  cerrar('m-fid-cliente');
+  if(_fidPremioPendienteCanje){
+    const premioId = _fidPremioPendienteCanje;
+    _fidPremioPendienteCanje = null;
+    fidConfirmarCanjeVenta(premioId, cliId);
+    return;
+  }
+  const chk = document.getElementById('fid-venta-check');
+  if(chk) chk.checked = true;
+  fidActualizarInfoVenta();
+}
+
+function fidAbrirNuevoClienteDesdeVenta(){
+  cerrar('m-fid-cliente');
+  _fidPendienteAsignar = true;
+  abrirCli();
+}
+
+async function fidSumarPuntosPorVenta(cliId, venta){
+  try{
+    await fidAsegurarConfigCargada();
+    const pts = fidCalcularPuntos(venta.total);
+    if(pts<=0) return;
+    const cli = DB.clis.find(function(c){ return c.id==cliId; });
+    if(!cli) return;
+    cli.puntos = (cli.puntos||0) + pts;
+    if(cli._uuid){
+      await sbPatch('clientes', cli._uuid, { puntos: cli.puntos });
+      await sbPost('fidelizacion_movimientos', {
+        negocio_id: NEGOCIO_ID, cliente_id: cli._uuid, tipo: 'suma', puntos: pts,
+        venta_id: venta._uuid || null, usuario_id: (_sesion && _sesion._uuid) ? _sesion._uuid : null,
+        nota: 'Compra por '+fmt(venta.total)
+      });
+    }
+    saveDB();
+    if(typeof renderClis==='function') renderClis();
+    toast('🎁 '+cli.nom+' sumó '+pts+' punto'+(pts!==1?'s':''), 'v');
+  }catch(e){
+    console.error('Error sumando puntos de fidelización:', e);
+    toast('No se pudieron sumar los puntos (revisá conexión)', 'a');
+  }
+}
+
+// ── Ajuste manual de puntos (desde Clientes) ──
+function abrirAjustePuntos(cliId){
+  const c = DB.clis.find(function(x){ return x.id===cliId; });
+  if(!c) return;
+  document.getElementById('ajuste-cli-id').value = cliId;
+  document.getElementById('ajuste-cli-nom').textContent = c.nom;
+  document.getElementById('ajuste-cli-actual').textContent = 'Tiene actualmente: '+(c.puntos||0)+' puntos';
+  document.getElementById('ajuste-cantidad').value = '';
+  document.getElementById('ajuste-nota').value = '';
+  abrir('m-fid-ajuste');
+}
+
+async function guardarAjustePuntos(){
+  const cliId = parseInt(document.getElementById('ajuste-cli-id').value);
+  const cantidad = parseInt(document.getElementById('ajuste-cantidad').value);
+  const nota = document.getElementById('ajuste-nota').value.trim();
+  if(!cantidad || isNaN(cantidad)){ toast('Ingresá una cantidad distinta de 0', 'a'); return; }
+  const cli = DB.clis.find(function(c){ return c.id===cliId; });
+  if(!cli){ toast('Cliente no encontrado', 'r'); return; }
+  cli.puntos = (cli.puntos||0) + cantidad;
+  try{
+    if(cli._uuid){
+      await sbPatch('clientes', cli._uuid, { puntos: cli.puntos });
+      await sbPost('fidelizacion_movimientos', {
+        negocio_id: NEGOCIO_ID, cliente_id: cli._uuid, tipo: 'ajuste', puntos: cantidad,
+        usuario_id: (_sesion && _sesion._uuid) ? _sesion._uuid : null,
+        nota: nota || 'Ajuste manual'
+      });
+    }
+    saveDB();
+    cerrar('m-fid-ajuste');
+    renderClis();
+    toast('Ajuste guardado — '+cli.nom+' ahora tiene '+cli.puntos+' puntos', 'v');
+  }catch(e){
+    console.error('Error guardando ajuste de puntos:', e);
+    toast('Error al guardar el ajuste (revisá conexión)', 'r');
+  }
+}
+
+// ── Canje de premio desde Ventas (se agrega al ticket, se procesa al cobrar) ──
+function fidPuntosYaEnTicket(){
+  return ticket.filter(function(it){ return it.premioId; }).reduce(function(s,it){ return s+(it.premioCostoPuntos||0); }, 0);
+}
+
+async function abrirCanjePremioVenta(){
+  await fidAsegurarPremiosCargados();
+  if(!_fidPremios.length){ toast('No hay premios cargados en el catálogo', 'a'); return; }
+  fidRenderListaCanjeVenta();
+  abrir('m-fid-canje-venta');
+}
+
+function fidRenderListaCanjeVenta(){
+  const cont = document.getElementById('fid-canje-venta-lista');
+  if(!_fidPremios.length){ cont.innerHTML = '<div class="vacio"><div class="vi">🎁</div><p>Sin premios cargados</p></div>'; return; }
+  cont.innerHTML = _fidPremios.map(function(p){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 6px;border-bottom:1px solid #f0f0f0">'+
+      '<span style="font-size:13px"><strong>'+p.nombre+'</strong><br><span style="color:#888;font-size:11px">'+p.costo_puntos+' puntos</span></span>'+
+      '<button class="btn bv bsm" onclick="fidElegirPremioVenta(\''+p.id+'\')">Elegir</button></div>';
+  }).join('');
+}
+
+function fidElegirPremioVenta(premioId){
+  const cliId = document.getElementById('pvcli').value;
+  if(!cliId){
+    _fidPremioPendienteCanje = premioId;
+    cerrar('m-fid-canje-venta');
+    abrirBuscarClienteVenta();
+    return;
+  }
+  fidConfirmarCanjeVenta(premioId, cliId);
+}
+
+function fidConfirmarCanjeVenta(premioId, cliId){
+  const premio = _fidPremios.find(function(p){ return p.id===premioId; });
+  const cli = DB.clis.find(function(c){ return c.id==cliId; });
+  if(!premio || !cli) return;
+  const saldoActual = (cli.puntos||0) - fidPuntosYaEnTicket();
+  if(saldoActual < premio.costo_puntos){
+    toast('❌ '+cli.nom+' no tiene puntos suficientes (tiene '+saldoActual+', necesita '+premio.costo_puntos+')', 'r');
+    cerrar('m-fid-canje-venta');
+    return;
+  }
+  const artNum = premio.articulo_id ? _artUUIDtoNum[premio.articulo_id] : null;
+  if(artNum){
+    const art = DB.arts.find(function(a){ return a.id===artNum; });
+    if(art && art.usastk!=='no' && art.stk<=0){
+      toast('Sin stock: '+art.nom, 'r');
+      cerrar('m-fid-canje-venta');
+      return;
+    }
+  }
+  ticket.push({ aid: artNum, nom: '🎁 '+premio.nombre+' (canje)', cant:1, precio:0, esMayor:false, manual:true, premioId: premio.id, premioCostoPuntos: premio.costo_puntos });
+  renderTicket();
+  cerrar('m-fid-canje-venta');
+  toast('Premio agregado al ticket — se descuenta al cobrar', 'v');
+}
+
+async function fidProcesarCanjesDeVenta(venta){
+  if(!venta.items) return;
+  const canjes = venta.items.filter(function(it){ return it.premioId; });
+  if(!canjes.length) return;
+  const cli = venta.cliid ? DB.clis.find(function(c){ return c.id==venta.cliid; }) : null;
+  if(!cli){
+    console.warn('Venta con premio canjeado pero sin cliente asociado');
+    return;
+  }
+  for(const it of canjes){
+    const costo = it.premioCostoPuntos || 0;
+    cli.puntos = (cli.puntos||0) - costo;
+    if(cli._uuid){
+      try{
+        await sbPatch('clientes', cli._uuid, { puntos: cli.puntos });
+        await sbPost('fidelizacion_movimientos', {
+          negocio_id: NEGOCIO_ID, cliente_id: cli._uuid, tipo: 'canje', puntos: -costo,
+          venta_id: venta._uuid || null, premio_id: it.premioId,
+          usuario_id: (_sesion && _sesion._uuid) ? _sesion._uuid : null,
+          nota: 'Canje: '+it.nom
+        });
+      }catch(e){
+        console.error('Error registrando canje:', e);
+        toast('Error al registrar el canje de '+it.nom, 'r');
+      }
+    }
+  }
+  saveDB();
+  if(typeof renderClis==='function') renderClis();
+}
+
+// ── Canje libre (sin venta en curso) desde el módulo Fidelización ──
+function abrirCanjeLibre(premioId){
+  const p = _fidPremios.find(function(x){ return x.id===premioId; });
+  if(!p) return;
+  document.getElementById('canjelibre-premio-id').value = premioId;
+  document.getElementById('canjelibre-premio-nom').textContent = p.nombre;
+  document.getElementById('canjelibre-premio-costo').textContent = 'Costo: '+p.costo_puntos+' puntos';
+  document.getElementById('canjelibre-buscar').value='';
+  document.getElementById('canjelibre-resultados').innerHTML='';
+  document.getElementById('canjelibre-seleccionado').style.display='none';
+  document.getElementById('canjelibre-btn-confirmar').style.display='none';
+  _canjeLibreCliId = null;
+  abrir('m-fid-canje-libre');
+  setTimeout(function(){document.getElementById('canjelibre-buscar').focus();},100);
+}
+
+function fidBuscarClienteCanjeLibre(){
+  const q = document.getElementById('canjelibre-buscar').value.trim().toLowerCase();
+  const cont = document.getElementById('canjelibre-resultados');
+  if(!q){ cont.innerHTML=''; return; }
+  const encontrados = DB.clis.filter(function(c){
+    return c.nom.toLowerCase().includes(q) || (c.dni||'').toLowerCase().includes(q);
+  }).slice(0,8);
+  if(!encontrados.length){ cont.innerHTML='<div style="font-size:13px;color:#888">Sin resultados</div>'; return; }
+  cont.innerHTML = encontrados.map(function(c){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--crema);border-radius:6px;margin-bottom:4px">'+
+      '<span style="font-size:13px">'+c.nom+(c.dni?(' · DNI '+c.dni):'')+' · <span class="bdg bt2">🎁 '+(c.puntos||0)+'</span></span>'+
+      '<button class="btn bv bsm" onclick="fidElegirClienteCanjeLibre('+c.id+')">Elegir</button></div>';
+  }).join('');
+}
+
+function fidElegirClienteCanjeLibre(cliId){
+  const c = DB.clis.find(function(x){ return x.id===cliId; });
+  if(!c) return;
+  _canjeLibreCliId = cliId;
+  document.getElementById('canjelibre-resultados').innerHTML='';
+  document.getElementById('canjelibre-buscar').value='';
+  const premioId = document.getElementById('canjelibre-premio-id').value;
+  const p = _fidPremios.find(function(x){ return x.id===premioId; });
+  const sel = document.getElementById('canjelibre-seleccionado');
+  sel.style.display='';
+  const alcanza = (c.puntos||0) >= (p?p.costo_puntos:0);
+  sel.innerHTML = 'Cliente: <strong>'+c.nom+'</strong><br>Tiene: '+(c.puntos||0)+' puntos'+(alcanza?'':' <span style="color:var(--rojo)">— insuficiente</span>');
+  document.getElementById('canjelibre-btn-confirmar').style.display = alcanza ? '' : 'none';
+}
+
+async function confirmarCanjeLibre(){
+  const premioId = document.getElementById('canjelibre-premio-id').value;
+  const p = _fidPremios.find(function(x){ return x.id===premioId; });
+  const cli = DB.clis.find(function(x){ return x.id===_canjeLibreCliId; });
+  if(!p || !cli) return;
+  if((cli.puntos||0) < p.costo_puntos){ toast('Puntos insuficientes', 'r'); return; }
+  if(!await confirmar('¿Confirmás canjear "'+p.nombre+'" por '+p.costo_puntos+' puntos de '+cli.nom+'?')) return;
+  const artNum = p.articulo_id ? _artUUIDtoNum[p.articulo_id] : null;
+  let art = null;
+  if(artNum){
+    art = DB.arts.find(function(a){ return a.id===artNum; });
+    if(art && art.usastk!=='no' && art.stk<=0){ toast('Sin stock de '+art.nom, 'r'); return; }
+  }
+  cli.puntos = (cli.puntos||0) - p.costo_puntos;
+  if(art){ art.stk = Math.max(0, (art.stk||0)-1); }
+  try{
+    if(cli._uuid){
+      await sbPatch('clientes', cli._uuid, { puntos: cli.puntos });
+      await sbPost('fidelizacion_movimientos', {
+        negocio_id: NEGOCIO_ID, cliente_id: cli._uuid, tipo: 'canje', puntos: -p.costo_puntos,
+        premio_id: p.id, usuario_id: (_sesion && _sesion._uuid) ? _sesion._uuid : null,
+        nota: 'Canje libre: '+p.nombre
+      });
+    }
+    if(art && art._uuid){
+      await sbPatch('articulos', art._uuid, { stock_actual: art.stk });
+    }
+    saveDB();
+    cerrar('m-fid-canje-libre');
+    renderClis();
+    if(typeof renderArts==='function') renderArts();
+    toast('🎁 Canje registrado: '+p.nombre+' para '+cli.nom, 'v');
+  }catch(e){
+    console.error('Error registrando canje libre:', e);
+    toast('Error al registrar el canje (revisá conexión)', 'r');
+  }
 }
 
 const ETQ_PX_POR_MM = 3.5;
@@ -3388,8 +4084,8 @@ async function delProv(id){if(!await confirmar('¿Eliminás este proveedor?'))re
 const lnom={'lista1':'Lista 1','lista2':'Lista 2','lista3':'Lista 3','mayor':'Mayor'};
 function renderClis(lista){
   const clis=lista||DB.clis;const tb=document.getElementById('tcli');
-  if(!clis.length){tb.innerHTML='<tr><td colspan="6"><div class="vacio"><div class="vi">👥</div><p>Sin clientes</p></div></td></tr>';return;}
-  tb.innerHTML=clis.map(c=>{const s=DB.ventas.filter(v=>v.cliid==c.id&&v.pago==='Cuenta Corriente').reduce((a,v)=>a+v.total,0);return '<tr><td>'+c.id+'</td><td><strong>'+c.nom+'</strong></td><td>'+(c.dni||'-')+'</td><td>'+(c.tel||'-')+'</td><td><span class="bdg bv2">'+(lnom[c.lista]||c.lista)+'</span></td><td class="'+(s>0?'tr2':'tv')+'">'+fmt(s)+'</td><td><button class="btn bg bsm" onclick="editCli('+c.id+')">✏️</button> <button class="btn br bsm" onclick="delCli('+c.id+')">🗑️</button></td></tr>';}).join('');
+  if(!clis.length){tb.innerHTML='<tr><td colspan="7"><div class="vacio"><div class="vi">👥</div><p>Sin clientes</p></div></td></tr>';return;}
+  tb.innerHTML=clis.map(c=>{const s=DB.ventas.filter(v=>v.cliid==c.id&&v.pago==='Cuenta Corriente').reduce((a,v)=>a+v.total,0);return '<tr><td>'+c.id+'</td><td><strong>'+c.nom+'</strong></td><td>'+(c.dni||'-')+'</td><td>'+(c.tel||'-')+'</td><td><span class="bdg bv2">'+(lnom[c.lista]||c.lista)+'</span></td><td><span class="bdg bt2">🎁 '+(c.puntos||0)+'</span></td><td class="'+(s>0?'tr2':'tv')+'">'+fmt(s)+'</td><td><button class="btn bg bsm" onclick="editCli('+c.id+')">✏️</button> <button class="btn bt bsm" onclick="abrirAjustePuntos('+c.id+')" title="Ajustar puntos">🎁</button> <button class="btn br bsm" onclick="delCli('+c.id+')">🗑️</button></td></tr>';}).join('');
 }
 function filtCli(){guardarFiltroInput('bcli');const q=document.getElementById('bcli').value.toLowerCase();renderClis(DB.clis.filter(c=>c.nom.toLowerCase().includes(q)||(c.dni||'').includes(q)));}
 function abrirCli(){document.getElementById('cli-id').value='';document.getElementById('mcli-tit').textContent='Nuevo Cliente';['nom','dni','tel','email','dir'].forEach(f=>document.getElementById('cli-'+f).value='');document.getElementById('cli-lista').value='lista1';abrir('m-cli');}
@@ -3514,7 +4210,8 @@ function addTicketLista(id, lista){
 
 function renderVentas(){
   const sc=document.getElementById('pvcli');sc.innerHTML='<option value="">Consumidor Final</option>'+DB.clis.map(c=>'<option value="'+c.id+'">'+c.nom+'</option>').join('');
-  sc.onchange=function(){const c=DB.clis.find(x=>x.id==this.value);if(c)document.getElementById('pvlista').value=c.lista||'lista1';};
+  sc.onchange=function(){const c=DB.clis.find(x=>x.id==this.value);if(c)document.getElementById('pvlista').value=c.lista||'lista1';fidActualizarInfoVenta();};
+  fidAsegurarConfigCargada();
   renderPVArts();renderHist();
   setTimeout(function(){const b=document.getElementById('pvbus');if(b)b.focus();},100);
 }
@@ -6692,22 +7389,43 @@ async function arrancarSistema() {
       { usr: 'usuario5', pass: 'demo5' }
     ];
     const _elegido = _demos[Math.floor(Math.random() * _demos.length)];
-    document.getElementById('login-usr').value = _elegido.usr;
-    document.getElementById('login-pass').value = _elegido.pass;
 
-    // Reintento automático: si el primer intento falla (típicamente un problema
-    // pasajero de red), probamos una vez más antes de dejar a la persona afuera.
-    // _ultimoErrorLogin lo deja cargado doLogin() si el intento termina en error.
-    await doLogin(true);
-    let _intentosDemo = 1;
-    if (_ultimoErrorLogin) {
-      await new Promise(r => setTimeout(r, 1500));
+    // Reintento automático: hasta 3 intentos en total, con una pausa creciente entre
+    // cada uno, antes de darnos por vencidos. La mayoría de los "Failed to fetch" son
+    // baches pasajeros del lado del servidor, así que insistir un poco más recupera
+    // visitantes que antes se quedaban afuera con solo 2 intentos.
+    // Los 3 intentos van silenciosos (doLogin(true)): esta pantalla nunca muestra el
+    // formulario de usuario/contraseña, así que no tiene sentido que avisen por Slack
+    // como si fuera un login fallido cualquiera — de eso se encarga registrarIntentoDemo
+    // una sola vez, al final, con el resultado definitivo.
+    const _pausasMs = [0, 1200, 2500];
+    let _intentosDemo = 0;
+    for (let i = 0; i < _pausasMs.length; i++) {
+      if (_pausasMs[i] > 0) await new Promise(r => setTimeout(r, _pausasMs[i]));
       document.getElementById('login-usr').value = _elegido.usr;
       document.getElementById('login-pass').value = _elegido.pass;
-      await doLogin(false);
-      _intentosDemo = 2;
+      await doLogin(true);
+      _intentosDemo = i + 1;
+      if (!_ultimoErrorLogin) break; // entró: no hace falta seguir insistiendo
     }
+
     registrarIntentoDemo(_elegido.usr, !_ultimoErrorLogin, _intentosDemo, _ultimoErrorLogin);
+
+    if (_ultimoErrorLogin) {
+      // Se agotaron los 3 intentos: no dejamos a la persona mirando el spinner de
+      // "Cargando..." para siempre. Le mostramos qué pasó y una salida.
+      const _splash = document.getElementById('splash-screen');
+      if (_splash) {
+        _splash.innerHTML =
+          '<div style="font-size:48px;">😕</div>' +
+          '<div style="font-family:\'Fraunces\',serif;font-size:20px;color:white;font-weight:700;text-align:center;padding:0 24px;">No pudimos abrir la demo</div>' +
+          '<div style="color:rgba(255,255,255,0.75);font-size:13px;text-align:center;padding:0 32px;max-width:320px;">Puede ser un problema momentáneo de conexión. Probá de nuevo, o escribinos si seguís sin poder entrar.</div>' +
+          '<div style="display:flex;gap:10px;margin-top:8px;">' +
+            '<button onclick="location.reload()" style="padding:10px 18px;background:white;color:#1e293b;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif;">Reintentar</button>' +
+            '<a href="https://wa.me/5493515426971?text=Hola!%20No%20pude%20entrar%20a%20la%20demo%20de%20Mi%20Gestor" target="_blank" style="padding:10px 18px;background:#25D366;color:white;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;font-family:\'DM Sans\',sans-serif;">WhatsApp</a>' +
+          '</div>';
+      }
+    }
     return;
   }
 
@@ -7044,6 +7762,21 @@ guardarCli = async function() {
   }
 };
 
+// Override guardarCli (fidelización): si el cliente se estaba cargando desde
+// Ventas para sumarle puntos, lo asigna automáticamente al ticket en curso.
+const _guardarCliOrigFid = guardarCli;
+guardarCli = async function() {
+  const largoAntes = DB.clis.length;
+  await _guardarCliOrigFid();
+  if (_fidPendienteAsignar) {
+    _fidPendienteAsignar = false;
+    if (DB.clis.length > largoAntes) {
+      const nuevo = DB.clis[DB.clis.length - 1];
+      fidAsignarClienteVenta(nuevo.id);
+    }
+  }
+};
+
 // Override cobrarVenta para sync con Supabase
 const _cobrarVentaOrig = cobrarVenta;
 cobrarVenta = async function() {
@@ -7053,6 +7786,26 @@ cobrarVenta = async function() {
     const venta = DB.ventas[DB.ventas.length - 1];
     await _syncSupabase('venta_new', venta);
   }
+};
+
+// Override cobrarVenta (fidelización): si estaba tildado "Sumar puntos", los suma,
+// y si había premios canjeados agregados al ticket, los procesa — todo una vez que
+// la venta ya quedó registrada y sincronizada.
+const _cobrarVentaOrigFid = cobrarVenta;
+cobrarVenta = async function() {
+  const chk = document.getElementById('fid-venta-check');
+  const sumarPuntos = chk && chk.checked;
+  const cliIdPrevio = document.getElementById('pvcli').value;
+  const largoAntes = DB.ventas.length;
+  await _cobrarVentaOrigFid();
+  if (DB.ventas.length > largoAntes) {
+    const venta = DB.ventas[DB.ventas.length - 1];
+    if (sumarPuntos && cliIdPrevio) await fidSumarPuntosPorVenta(cliIdPrevio, venta);
+    await fidProcesarCanjesDeVenta(venta);
+  }
+  if (chk) chk.checked = false;
+  const info = document.getElementById('fid-venta-cliente-info');
+  if (info) info.textContent = '';
 };
 
 // Override guardarUsr para sync con Supabase
