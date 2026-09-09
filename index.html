@@ -391,16 +391,7 @@ tbody td{padding:9px 13px;vertical-align:middle;}
       <div class="panel">
         <div class="ptit">💰 Punto de Venta</div>
         <div class="fgrid" style="grid-template-columns:1fr 1fr 1fr">
-          <div class="fg"><label>Cliente</label>
-            <div style="position:relative">
-              <div class="bus" style="max-width:none">
-                <span>🔍</span>
-                <input type="text" id="pvcli-busqueda" placeholder="Buscar cliente... (vacío = Consumidor Final)" autocomplete="off" oninput="filtrarPvCli()" onfocus="filtrarPvCli()" onblur="setTimeout(function(){document.getElementById('pvcli-lista').style.display='none';},150)">
-              </div>
-              <div id="pvcli-lista" style="display:none;position:absolute;z-index:50;background:white;border:1.5px solid #e5e7eb;border-radius:8px;max-height:220px;overflow:auto;width:100%;box-shadow:var(--sombra2);margin-top:2px"></div>
-            </div>
-            <select id="pvcli" style="display:none"><option value="">Consumidor Final</option></select>
-          </div>
+          <div class="fg"><label>Cliente</label><select id="pvcli"><option value="">Consumidor Final</option></select></div>
           <div class="fg"><label>Lista de Precios</label>
             <select id="pvlista" onchange="refrescaPV()">
               <option value="lista1">Lista 1</option><option value="lista2">Lista 2</option>
@@ -1071,25 +1062,11 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   <div id="panel-fidcfg" class="panel">
     <div class="alert aa" style="margin-bottom:14px;font-size:13px">Acá definís dos cosas separadas: cuántos puntos suma el cliente al comprar, y cuánto vale cada punto en pesos (esto último sirve solo como referencia para sugerir el costo de los premios — vos siempre podés pisarlo a mano).</div>
     <div class="fgrid" style="grid-template-columns:1fr 1fr">
-      <div class="fg">
-        <label>Cada cuántos pesos gastados...</label>
-        <input type="number" id="fid-monto" min="1" placeholder="Ej: 100">
-        <div class="sdesc">Es el "paso" para ganar puntos. Con $100 acá, cada $100 de compra suma puntos.</div>
-      </div>
-      <div class="fg">
-        <label>...suma esta cantidad de puntos</label>
-        <input type="number" id="fid-puntos" min="0.01" step="0.01" placeholder="Ej: 1">
-        <div class="sdesc">Cuántos puntos le das al cliente cada vez que junta el monto de al lado.</div>
-      </div>
-      <div class="fg">
-        <label>Valor de referencia de 1 punto ($)</label>
-        <input type="number" id="fid-valorpunto" min="0.01" step="0.01" placeholder="Ej: 50">
-        <div class="sdesc">Solo se usa para sugerirte el costo en puntos al cargar un premio. El cliente nunca ve este número.</div>
-      </div>
-      <div class="fg">
-        <label>Estado</label>
+      <div class="fg"><label>Cada cuántos pesos gastados...</label><input type="number" id="fid-monto" min="1" placeholder="Ej: 100"></div>
+      <div class="fg"><label>...suma esta cantidad de puntos</label><input type="number" id="fid-puntos" min="0.01" step="0.01" placeholder="Ej: 1"></div>
+      <div class="fg"><label>Valor de referencia de 1 punto ($)</label><input type="number" id="fid-valorpunto" min="0.01" step="0.01" placeholder="Ej: 50"></div>
+      <div class="fg"><label>Estado</label>
         <select id="fid-activo"><option value="si">Activo</option><option value="no">Desactivado</option></select>
-        <div class="sdesc">Desactivado = se pausa todo (no suma ni deja canjear), sin borrar la configuración.</div>
       </div>
     </div>
     <div id="fid-ejemplo" style="font-size:13px;color:var(--gris);margin:4px 0 14px"></div>
@@ -2963,7 +2940,6 @@ function fidBuscarClienteVenta(){
 
 function fidAsignarClienteVenta(cliId){
   document.getElementById('pvcli').value = cliId;
-  pvCliActualizarTextoVisible();
   cerrar('m-fid-cliente');
   if(_fidPremioPendienteCanje){
     const premioId = _fidPremioPendienteCanje;
@@ -3187,7 +3163,6 @@ async function confirmarCanjeLibre(){
   const cli = DB.clis.find(function(x){ return x.id===_canjeLibreCliId; });
   if(!p || !cli) return;
   if((cli.puntos||0) < p.costo_puntos){ toast('Puntos insuficientes', 'r'); return; }
-  cerrar('m-fid-canje-libre');
   if(!await confirmar('¿Confirmás canjear "'+p.nombre+'" por '+p.costo_puntos+' puntos de '+cli.nom+'?')) return;
   const artNum = p.articulo_id ? _artUUIDtoNum[p.articulo_id] : null;
   let art = null;
@@ -4233,41 +4208,9 @@ function addTicketLista(id, lista){
   document.getElementById('pvlista').value = prev;
 }
 
-function pvCliActualizarTextoVisible(){
-  const sel = document.getElementById('pvcli');
-  const busq = document.getElementById('pvcli-busqueda');
-  if(!sel || !busq) return;
-  const c = DB.clis.find(function(x){ return x.id==sel.value; });
-  busq.value = c ? c.nom : '';
-}
-
-function filtrarPvCli(){
-  const q = document.getElementById('pvcli-busqueda').value.trim().toLowerCase();
-  const cont = document.getElementById('pvcli-lista');
-  const opciones = [{id:'',nom:'Consumidor Final',dni:''}].concat(DB.clis.map(function(c){return {id:c.id,nom:c.nom,dni:c.dni};}));
-  const filtradas = q ? opciones.filter(function(o){return o.nom.toLowerCase().includes(q) || (o.dni||'').toLowerCase().includes(q);}) : opciones;
-  if(!filtradas.length){
-    cont.innerHTML = '<div style="padding:8px 12px;font-size:13px;color:#888">Sin resultados</div>';
-  } else {
-    cont.innerHTML = filtradas.slice(0,50).map(function(o){
-      return '<div style="padding:8px 12px;font-size:13px;cursor:pointer" onmouseover="this.style.background=\'var(--verde-suave)\'" onmouseout="this.style.background=\'\'" onmousedown="elegirPvCli(\''+o.id+'\')">'+o.nom+(o.dni?(' · DNI '+o.dni):'')+'</div>';
-    }).join('');
-  }
-  cont.style.display='block';
-}
-
-function elegirPvCli(id){
-  const sel = document.getElementById('pvcli');
-  sel.value = id;
-  pvCliActualizarTextoVisible();
-  document.getElementById('pvcli-lista').style.display='none';
-  if(typeof sel.onchange==='function') sel.onchange.call(sel);
-}
-
 function renderVentas(){
   const sc=document.getElementById('pvcli');sc.innerHTML='<option value="">Consumidor Final</option>'+DB.clis.map(c=>'<option value="'+c.id+'">'+c.nom+'</option>').join('');
   sc.onchange=function(){const c=DB.clis.find(x=>x.id==this.value);if(c)document.getElementById('pvlista').value=c.lista||'lista1';fidActualizarInfoVenta();};
-  pvCliActualizarTextoVisible();
   fidAsegurarConfigCargada();
   renderPVArts();renderHist();
   setTimeout(function(){const b=document.getElementById('pvbus');if(b)b.focus();},100);
@@ -4477,7 +4420,6 @@ async function nuevaVenta(){
   if(ticket.length>0&&!await confirmar('¿Cancelás la venta actual?'))return;
   ticket=[];renderTicket();limpiaPV();
   document.getElementById('tdesc').value=0;document.getElementById('pvcli').value='';document.getElementById('pvlista').value='lista1';
-  pvCliActualizarTextoVisible();
   selPago('Efectivo');renderPVArts();
 }
 async function cancelarTicket(){if(ticket.length>0&&!await confirmar('¿Cancelás el ticket?'))return;ticket=[];renderTicket();limpiaPV();}
