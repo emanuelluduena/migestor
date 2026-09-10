@@ -1062,11 +1062,25 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   <div id="panel-fidcfg" class="panel">
     <div class="alert aa" style="margin-bottom:14px;font-size:13px">Acá definís dos cosas separadas: cuántos puntos suma el cliente al comprar, y cuánto vale cada punto en pesos (esto último sirve solo como referencia para sugerir el costo de los premios — vos siempre podés pisarlo a mano).</div>
     <div class="fgrid" style="grid-template-columns:1fr 1fr">
-      <div class="fg"><label>Cada cuántos pesos gastados...</label><input type="number" id="fid-monto" min="1" placeholder="Ej: 100"></div>
-      <div class="fg"><label>...suma esta cantidad de puntos</label><input type="number" id="fid-puntos" min="0.01" step="0.01" placeholder="Ej: 1"></div>
-      <div class="fg"><label>Valor de referencia de 1 punto ($)</label><input type="number" id="fid-valorpunto" min="0.01" step="0.01" placeholder="Ej: 50"></div>
-      <div class="fg"><label>Estado</label>
+      <div class="fg">
+        <label>Cada cuántos pesos gastados...</label>
+        <input type="number" id="fid-monto" min="1" placeholder="Ej: 100">
+        <div class="sdesc">Es el "paso" para ganar puntos. Con $100 acá, cada $100 de compra suma puntos.</div>
+      </div>
+      <div class="fg">
+        <label>...suma esta cantidad de puntos</label>
+        <input type="number" id="fid-puntos" min="0.01" step="0.01" placeholder="Ej: 1">
+        <div class="sdesc">Cuántos puntos le das al cliente cada vez que junta el monto de al lado.</div>
+      </div>
+      <div class="fg">
+        <label>Valor de referencia de 1 punto ($)</label>
+        <input type="number" id="fid-valorpunto" min="0.01" step="0.01" placeholder="Ej: 50">
+        <div class="sdesc">Solo se usa para sugerirte el costo en puntos al cargar un premio. El cliente nunca ve este número.</div>
+      </div>
+      <div class="fg">
+        <label>Estado</label>
         <select id="fid-activo"><option value="si">Activo</option><option value="no">Desactivado</option></select>
+        <div class="sdesc">Desactivado = se pausa todo (no suma ni deja canjear), sin borrar la configuración.</div>
       </div>
     </div>
     <div id="fid-ejemplo" style="font-size:13px;color:var(--gris);margin:4px 0 14px"></div>
