@@ -7530,6 +7530,7 @@ const _doLoginOriginal = doLogin;
 // _ultimoErrorLogin: si un intento de login termina en error, queda el mensaje acá
 // (y null si salió bien). Lo usa el flujo de ?demo=1 para saber si reintentar.
 let _ultimoErrorLogin = null;
+let _intentosLoginFallidos = 0;
 doLogin = async function(silencioso) {
   _ultimoErrorLogin = null; // cada llamada arranca limpia, sin arrastrar el estado de la anterior
   const usr = document.getElementById('login-usr').value.trim();
@@ -7563,6 +7564,7 @@ doLogin = async function(silencioso) {
     }
 
     _ultimoErrorLogin = null; // credenciales válidas: lo que pase de acá en más ya no es "fallo de login"
+    _intentosLoginFallidos = 0;
     SESSION_TOKEN = loginData.token;
     const usrSB = loginData.usuario;
     let negocioId = usrSB.negocio_id;
@@ -7620,8 +7622,13 @@ doLogin = async function(silencioso) {
     _ultimoErrorLogin = _detalleError;
     if (!silencioso) {
       avisarSoporte('login_fallido', _detalleError);
+      _intentosLoginFallidos++;
       loginErr.style.display = 'block';
-      loginErr.textContent = 'Error de conexión. Verificá internet.';
+      if (_intentosLoginFallidos >= 2) {
+        loginErr.innerHTML = 'No pudimos conectarte 😕 — puede ser tu conexión. <a href="https://wa.me/5493515426971?text=' + encodeURIComponent('Hola! No puedo entrar a Mi Gestor') + '" target="_blank" style="color:#1e293b;font-weight:700;text-decoration:underline;">Escribinos por WhatsApp</a> y te hacemos entrar nosotros mismos.';
+      } else {
+        loginErr.textContent = 'Error de conexión. Probá de nuevo.';
+      }
     }
     if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'Ingresar'; }
   }
