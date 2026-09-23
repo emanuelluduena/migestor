@@ -1508,6 +1508,33 @@ tbody td{padding:9px 13px;vertical-align:middle;}
   <button class="btn bg" style="width:100%;justify-content:center;margin-bottom:14px" onclick="contactarEmail()">📧 Email</button>
   <button class="btn bg" style="justify-content:center" onclick="cerrar('m-ayuda')">Cerrar</button>
 </div></div>
+
+<div class="moverlay" id="m-demo-salida"><div class="modal" style="max-width:380px;text-align:center">
+  <h2 style="justify-content:center">👋 ¿Te vas ya?</h2>
+  <p style="color:#64748b;margin:10px 0 16px">¿Te quedaste con ganas de ver más? Registrate y probá Mi Gestor <strong>15 días más</strong>, sin costo.</p>
+  <a class="btn bv" style="width:100%;justify-content:center;margin-bottom:10px;text-decoration:none" href="https://devkore.com.ar/registro.html?origen=demo-popup" target="_blank">🎁 Quiero 15 días gratis</a>
+  <button class="btn bg" style="width:100%;justify-content:center;margin-bottom:16px" onclick="contactarWhatsappDemo()">💬 Tengo una duda, hablemos</button>
+  <div style="border-top:1px solid #e2e8f0;padding-top:14px;margin-bottom:10px">
+    <div style="font-size:13px;color:#64748b;margin-bottom:8px">¿Qué te pareció la demo?</div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button class="btn bg" id="demo-fb-si" style="font-size:20px;padding:8px 16px" onclick="marcarFeedbackDemo('si')">👍</button>
+      <button class="btn bg" id="demo-fb-no" style="font-size:20px;padding:8px 16px" onclick="marcarFeedbackDemo('no')">👎</button>
+    </div>
+  </div>
+  <button class="btn bg" style="justify-content:center;font-size:13px;margin-bottom:8px" onclick="cerrar('m-demo-salida')">Seguir viendo la demo</button>
+  <div style="font-size:12px;color:#94a3b8;cursor:pointer;text-decoration:underline" onclick="doLogout()">Salir sin más</div>
+</div></div>
+
+<div class="moverlay" id="m-demo-feedback-no"><div class="modal" style="max-width:360px;text-align:center">
+  <h2 style="justify-content:center">😕 ¿Qué no te gustó?</h2>
+  <p style="color:#64748b;margin:10px 0 14px">Tu opinión nos ayuda a crecer. Contanos brevemente (opcional).</p>
+  <textarea id="demo-feedback-txt" rows="3" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-family:inherit;font-size:14px;margin-bottom:14px" placeholder="Ej: me pareció confuso el menú, faltó tal función..."></textarea>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
+    <button class="btn bg" style="justify-content:center" onclick="cerrar('m-demo-feedback-no')">Omitir</button>
+    <button class="btn bv" style="justify-content:center" onclick="enviarFeedbackDemoNegativo()">Enviar</button>
+  </div>
+</div></div>
+
 <div class="moverlay" id="m-gen"><div class="modal" style="max-width:340px;text-align:center">
   <h2 style="justify-content:center">✏️ Artículo con Precio Manual</h2>
   <p style="font-size:12px;color:var(--gris);margin-bottom:14px">Enter en descripción → salta al precio · Enter en precio → agrega al ticket</p>
@@ -1609,6 +1636,11 @@ async function registrarIntentoDemo(usuario, exito, intentos, mensaje) {
 }
 let NEGOCIO_ID = null;
 let SUCURSAL_ID = null; // sucursal activa de la sesión (null = negocio sin multi-sucursal, se ignora el filtro)
+
+// ═══ Popup de salida en la demo pública (aplica a las 5 cuentas demo1-demo5) ═══
+let ES_DEMO = false; // true solo cuando se entra por ?demo=1
+let _demoPopupMostrado = false; // para no repetirlo más de una vez por sesión de demo
+let _demoSentimiento = null; // 'si' o 'no' según lo que eligió en 👍/👎, o null si no eligió
 
 // Token de sesión (JWT firmado por la Edge Function /login, con el negocio_id adentro).
 // Antes de loguearse, no hay token todavía: se usa la clave pública (SB_KEY) para las
@@ -4363,6 +4395,71 @@ function contactarEmail(){
   const cuerpo = encodeURIComponent(_contextoSoporte());
   window.location.href = 'mailto:emanuelluduena1@gmail.com?subject=' + asunto + '&body=' + cuerpo;
   cerrar('m-ayuda');
+}
+
+// ═══ Popup de salida en la demo pública ═══
+function mostrarPopupSalidaDemo(){
+  // el "una sola vez" aplica solo a los disparadores pasivos (mouse/inactividad,
+  // que ya chequean _demoPopupMostrado antes de llamar a esta función). Un clic
+  // explícito en "Salir" siempre tiene que abrir el popup, aunque ya se haya
+  // mostrado antes por otro motivo.
+  _demoPopupMostrado = true;
+  abrir('m-demo-salida');
+}
+
+function marcarFeedbackDemo(valor){
+  _demoSentimiento = valor;
+  const btnSi = document.getElementById('demo-fb-si');
+  const btnNo = document.getElementById('demo-fb-no');
+  if (btnSi) btnSi.style.background = valor==='si' ? 'var(--verde)' : '';
+  if (btnNo) btnNo.style.background = valor==='no' ? 'var(--verde)' : '';
+  if (valor === 'no') {
+    abrir('m-demo-feedback-no');
+  } else {
+    toast('¡Qué bueno! Gracias 🙌', 'i');
+  }
+}
+
+function enviarFeedbackDemoNegativo(){
+  const texto = document.getElementById('demo-feedback-txt').value.trim();
+  avisarSoporte('demo-feedback-negativo', texto || '(sin comentario)');
+  cerrar('m-demo-feedback-no');
+  toast('Gracias, tu opinión nos ayuda a crecer 🙏', 'i');
+}
+
+function contactarWhatsappDemo(){
+  let texto = 'Hola! Estuve probando la demo de Mi Gestor';
+  if (_demoSentimiento === 'si') texto += ' y me gustó 👍.';
+  else if (_demoSentimiento === 'no') texto += ', quería comentarles algo.';
+  texto += ' Tengo una duda.';
+  window.open('https://wa.me/5493515426971?text=' + encodeURIComponent(texto), '_blank');
+  cerrar('m-demo-salida');
+}
+
+function iniciarSeguimientoSalidaDemo(){
+  // Disparador 1: el mouse se va hacia arriba de la pantalla (como yendo a cerrar la pestaña) — solo compu
+  document.addEventListener('mouseout', function(e){
+    if (!ES_DEMO) return;
+    if (document.getElementById('m-demo-salida').classList.contains('open')) return;
+    if (!e.relatedTarget && e.clientY <= 0) mostrarPopupSalidaDemo();
+  });
+
+  // Disparador 2: 3 minutos sin tocar nada
+  let _inactividadTimer = null;
+  function _reiniciarTimerInactividad(){
+    clearTimeout(_inactividadTimer);
+    _inactividadTimer = setTimeout(function(){
+      if (!document.getElementById('m-demo-salida').classList.contains('open')) mostrarPopupSalidaDemo();
+    }, 3 * 60 * 1000);
+  }
+  ['mousemove','keydown','click','touchstart','scroll'].forEach(function(ev){
+    document.addEventListener(ev, _reiniciarTimerInactividad, { passive: true });
+  });
+  _reiniciarTimerInactividad();
+
+  // Disparador 3: botón "Salir" del header — en demo, primero mostramos el popup en vez de cerrar sesión directo
+  const badge = document.getElementById('usr-badge');
+  if (badge) badge.setAttribute('onclick', 'mostrarPopupSalidaDemo()');
 }
 function renderTicket(){
   const vac=document.getElementById('tvacio'),cont=document.getElementById('tcont');
@@ -7395,6 +7492,7 @@ async function arrancarSistema() {
   // ═══ Acceso directo a la demo pública, sin login (?demo=1) ═══
   const _params = new URLSearchParams(window.location.search);
   if (_params.get('demo') === '1') {
+    ES_DEMO = true;
     const _demos = [
       { usr: 'usuario1', pass: 'demo1' },
       { usr: 'usuario2', pass: 'demo2' },
@@ -7424,6 +7522,7 @@ async function arrancarSistema() {
     }
 
     registrarIntentoDemo(_elegido.usr, !_ultimoErrorLogin, _intentosDemo, _ultimoErrorLogin);
+    if (!_ultimoErrorLogin) iniciarSeguimientoSalidaDemo();
 
     if (_ultimoErrorLogin) {
       // Se agotaron los 3 intentos: no dejamos a la persona mirando el spinner de
