@@ -163,11 +163,56 @@
         return { nombre: h.sheet, matriz: h.data.map(function (fila) { return fila.map(celdaExcel); }) };
       }).filter(function (h) { return h.matriz.some(function (f) { return f.some(function (c) { return c !== null && c !== ''; }); }); });
     }
+    if (ext === 'pdf') return [{ nombre: 'PDF', matriz: await leerPDF(file) }];
     const buf = await file.arrayBuffer();
     let texto;
     try { texto = new TextDecoder('utf-8', { fatal: true }).decode(buf); }
     catch (e) { texto = new TextDecoder('windows-1252').decode(buf); } // CSV típico de Excel en Argentina
     return [{ nombre: 'CSV', matriz: Core.parseCSV(texto) }];
+  }
+
+  // PDF: pdf.js se carga recién cuando alguien sube un PDF (no pesa en el resto del sistema).
+  let _pdfCargando = null;
+  function cargarScript(src) {
+    return new Promise(function (ok, mal) {
+      const el = document.createElement('script');
+      el.src = src; el.onload = ok; el.onerror = function () { mal(new Error('No se pudo cargar ' + src)); };
+      document.head.appendChild(el);
+    });
+  }
+  function cargarPdfJs() {
+    if (typeof pdfjsLib !== 'undefined') return Promise.resolve();
+    if (!_pdfCargando) {
+      _pdfCargando = cargarScript('lib/pdf.min.js').catch(function (e) { _pdfCargando = null; throw e; });
+    }
+    return _pdfCargando;
+  }
+  async function leerPDF(file) {
+    try { await cargarPdfJs(); }
+    catch (e) { throw new Error('Falta la librería de PDF (lib/pdf.min.js y lib/pdf.worker.min.js). Podés pasar la lista a Excel o CSV mientras tanto.'); }
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js';
+    const datos = new Uint8Array(await file.arrayBuffer());
+    let doc;
+    try { doc = await pdfjsLib.getDocument({ data: datos }).promise; }
+    catch (e) {
+      if (e && e.name === 'PasswordException') throw new Error('El PDF tiene contraseña. Sacale la protección y volvé a subirlo.');
+      throw new Error('No se pudo abrir el PDF. Probá volver a guardarlo o pasarlo a Excel.');
+    }
+    if (doc.numPages > 300) throw new Error('El PDF tiene demasiadas páginas (' + doc.numPages + '). Dividilo en partes.');
+    const paginas = []; let textos = 0;
+    for (let n = 1; n <= doc.numPages; n++) {
+      const pag = await doc.getPage(n);
+      const cont = await pag.getTextContent();
+      const items = cont.items.filter(function (t) { return typeof t.str === 'string'; }).map(function (t) {
+        return { str: t.str, x: t.transform[4], y: t.transform[5], w: t.width, h: t.height || Math.abs(t.transform[3]) };
+      });
+      textos += items.filter(function (t) { return t.str.trim() !== ''; }).length;
+      paginas.push(items);
+    }
+    if (textos < 5) throw new Error('Este PDF no tiene texto seleccionable (parece una foto o un escaneo). Pedile al proveedor la lista en Excel o en un PDF con texto.');
+    const matriz = Core.pdfAMatriz(paginas);
+    if (!matriz.length) throw new Error('No se pudo armar una tabla con ese PDF. Probá con la lista en Excel o CSV.');
+    return matriz;
   }
 
   function celdaExcel(c) {
@@ -282,8 +327,8 @@
         '<div class="fg"><label>Proveedor</label>' +
           '<select id="lp-prov" onfocus="ListasProvUI.refrescarProvs()" onchange="ListasProvUI.elegirProv(this.value)">' + opcionesProv() + '</select>' +
           '<div class="sdesc">¿No está? <a href="#" onclick="ListasProvUI.nuevoProveedor();return false" style="color:var(--verde)">Crear proveedor</a></div></div>' +
-        '<div class="fg"><label>Archivo de la lista (Excel .xlsx o CSV)</label>' +
-          '<input type="file" id="lp-file" accept=".xlsx,.xls,.csv,.txt" onchange="ListasProvUI.archivo(this)"' + (S.provId ? '' : ' disabled') + '>' +
+        '<div class="fg"><label>Archivo de la lista (Excel .xlsx, CSV o PDF)</label>' +
+          '<input type="file" id="lp-file" accept=".xlsx,.xls,.csv,.txt,.pdf" onchange="ListasProvUI.archivo(this)"' + (S.provId ? '' : ' disabled') + '>' +
           '<div class="sdesc">' + (S.provId ? 'Se recuerdan las columnas de este proveedor para la próxima vez.' : 'Elegí primero el proveedor.') + '</div></div>' +
       '</div>';
 

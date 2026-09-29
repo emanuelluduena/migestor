@@ -125,7 +125,7 @@
   };
 
   function sinAcentos(s) {
-    return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
   }
 
   function puntajeEncabezado(celda, campo) {
@@ -514,8 +514,85 @@
     return out;
   }
 
+  // ─── PDF: reconstruir una tabla a partir de los textos con posición ─────────
+  /**
+   * paginas: [ [ {str, x, y, w, h}, ... ], ... ]   (y crece hacia arriba, como en PDF)
+   * Devuelve una matriz de filas × columnas de strings, igual que un CSV/Excel.
+   * 1) agrupa los textos en renglones por altura; 2) junta las palabras pegadas en celdas;
+   * 3) detecta las columnas por dónde hay texto en TODAS las páginas (los huecos verticales separan columnas).
+   */
+  function pdfAMatriz(paginas) {
+    const filasCeldas = []; // cada fila: [{x0,x1,txt}]
+    (paginas || []).forEach(function (items) {
+      const it = (items || []).filter(function (t) { return t && String(t.str).trim() !== ''; })
+        .map(function (t) { return { str: String(t.str), x: +t.x, y: +t.y, w: +t.w || 0, h: +t.h || 8 }; });
+      if (!it.length) return;
+      const hs = it.map(function (t) { return t.h; }).sort(function (a, b) { return a - b; });
+      const hMed = hs[Math.floor(hs.length / 2)] || 8;
+      const tol = Math.max(1.5, hMed * 0.45);
+      it.sort(function (a, b) { return b.y - a.y || a.x - b.x; });
+      const renglones = [];
+      it.forEach(function (t) {
+        const ult = renglones[renglones.length - 1];
+        if (ult && Math.abs(ult.y - t.y) <= tol) { ult.items.push(t); }
+        else renglones.push({ y: t.y, items: [t] });
+      });
+      renglones.forEach(function (r) {
+        r.items.sort(function (a, b) { return a.x - b.x; });
+        const celdas = [];
+        r.items.forEach(function (t) {
+          const c = celdas[celdas.length - 1];
+          const hueco = c ? t.x - c.x1 : Infinity;
+          if (c && hueco < Math.max(t.h, 6) * 0.6) { c.txt += (hueco > 0.5 ? ' ' : '') + t.str.trim(); c.x1 = Math.max(c.x1, t.x + t.w); }
+          else celdas.push({ x0: t.x, x1: t.x + t.w, txt: t.str.trim() });
+        });
+        filasCeldas.push(celdas);
+      });
+    });
+    if (!filasCeldas.length) return [];
+
+    // Cobertura horizontal solo con renglones de 2+ celdas (los títulos de una sola celda no arman columnas)
+    const multi = filasCeldas.filter(function (f) { return f.length >= 2; });
+    let maxX = 0; filasCeldas.forEach(function (f) { f.forEach(function (c) { if (c.x1 > maxX) maxX = c.x1; }); });
+    const N = Math.ceil(maxX) + 2;
+    const cob = new Array(N).fill(0);
+    multi.forEach(function (f) { f.forEach(function (c) {
+      for (let x = Math.max(0, Math.floor(c.x0)); x <= Math.min(N - 1, Math.ceil(c.x1)); x++) cob[x]++;
+    }); });
+    const umbral = Math.max(2, Math.round(multi.length * 0.04));
+    let cols = []; let ini = -1;
+    for (let x = 0; x <= N; x++) {
+      const on = x < N && cob[x] >= umbral;
+      if (on && ini < 0) ini = x;
+      if (!on && ini >= 0) { cols.push({ a: ini, b: x - 1 }); ini = -1; }
+    }
+    // Huecos muy chicos entre columnas (menos de 4 unidades) son el mismo bloque de texto
+    const uni = [];
+    cols.forEach(function (c) { const u = uni[uni.length - 1]; if (u && c.a - u.b < 4) u.b = c.b; else uni.push({ a: c.a, b: c.b }); });
+    cols = uni;
+    if (!cols.length) return filasCeldas.map(function (f) { return f.map(function (c) { return c.txt; }); });
+
+    const matriz = filasCeldas.map(function (f) {
+      const fila = new Array(cols.length).fill('');
+      f.forEach(function (c) {
+        const centro = (c.x0 + c.x1) / 2;
+        let k = -1;
+        for (let i = 0; i < cols.length; i++) if (centro >= cols[i].a && centro <= cols[i].b) { k = i; break; }
+        if (k < 0) { // cae en un hueco: la columna más cercana
+          let mejor = Infinity;
+          cols.forEach(function (col, i) { const d = Math.min(Math.abs(centro - col.a), Math.abs(centro - col.b)); if (d < mejor) { mejor = d; k = i; } });
+        }
+        fila[k] = fila[k] ? fila[k] + ' ' + c.txt : c.txt;
+      });
+      return fila;
+    });
+    // Sacar columnas totalmente vacías
+    const usadas = cols.map(function (_, i) { return matriz.some(function (f) { return f[i] !== ''; }); });
+    return matriz.map(function (f) { return f.filter(function (_, i) { return usadas[i]; }).map(function (v) { return v === '' ? null : v; }); });
+  }
+
   return {
-    parseNumero, parseCSV, detectarSeparador, detectarFilaEncabezado, sugerirMapeo, extraerFilas,
+    pdfAMatriz, parseNumero, parseCSV, detectarSeparador, detectarFilaEncabezado, sugerirMapeo, extraerFilas,
     ajustarCosto, normalizarTexto, normCodigo, similitud, indexarArticulos, candidatosPorNombre,
     matchear, calcularPrecios, armarVistaPrevia, relacionesParaGuardar, redondear
   };

@@ -8,6 +8,7 @@ Subís la lista del proveedor (Excel/CSV) → mapeás columnas y vinculás produ
 | `listas-proveedor-core.js` | `modulos/` |
 | `listas-proveedor.js` | `modulos/` |
 | `read-excel-file.min.js` | `lib/` |
+| `pdf.min.js` y `pdf.worker.min.js` | `lib/` (para leer PDF; se cargan solo cuando alguien sube un PDF, no afectan al resto del sistema) |
 | `migracion_funciones.sql` | ya aplicada / a aplicar en Supabase (no va en la carpeta) |
 
 Copiar también a la carpeta de producción (Copy-Item) antes del push.
@@ -37,9 +38,10 @@ Si falta algún archivo del módulo, la app sigue funcionando igual (el llamado 
 
 ## Limitaciones conocidas
 - No lee `.xls` viejo (guardar como `.xlsx` o CSV).
+- PDF: funciona con PDF que tienen texto (los que se pueden seleccionar). Si es un escaneo o foto, avisa y hay que pedir la lista en Excel/PDF con texto. Las columnas se arman por posición del texto; si una lista tiene un formato raro, revisá el paso de mapeo de columnas antes de aplicar.
 - Los proveedores son por sucursal: la configuración y vínculos quedan atados al proveedor de la sucursal donde se configuró.
 - La vista previa muestra los valores de la sucursal activa.
 - Los precios se guardan sin redondear (igual que el cálculo actual).
 
 ## Pruebas
-`node --test "tests/**/*.test.js" --test-force-exit` (47 pruebas). Recomendado además correr `npm test` en migestor-dev\testsuite.
+`node --test "tests/**/*.test.js" --test-force-exit` (52 pruebas, incluye PDF de ejemplo). Recomendado además correr `npm test` en migestor-dev\testsuite.
