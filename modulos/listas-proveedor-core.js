@@ -179,6 +179,57 @@
   }
 
   /**
+   * Como sugerirMapeo, pero si algún título no se reconoce mira el CONTENIDO de las columnas:
+   * costo = columna numérica más a la izquierda que no parece un código; descripción = columna de texto más larga.
+   */
+  function sugerirMapeoInteligente(matriz, filaEnc) {
+    const enc = (matriz && matriz[filaEnc]) || [];
+    const map = sugerirMapeo(enc);
+    const datos = (matriz || []).slice(filaEnc + 1, filaEnc + 61);
+    if (!datos.length) return map;
+    const ncols = Math.max(enc.length, datos.reduce(function (m, f) { return Math.max(m, (f || []).length); }, 0));
+    const info = [];
+    for (let j = 0; j < ncols; j++) {
+      let llenos = 0, nums = 0, decs = 0, largo = 0, conEspacio = 0, mismoLargoCod = true, largoRef = -1, enteros = 0;
+      datos.forEach(function (f) {
+        const v = f ? f[j] : null;
+        const t = celdaATexto(v);
+        if (!t) return;
+        llenos++;
+        const soloNumero = typeof v === 'number' || /^[\s$]*-?\d[\d.,]*\s*$/.test(t); // "Yerba 1kg" NO es un número
+        const n = soloNumero ? parseNumero(v, 'auto') : null;
+        if (n !== null && n > 0) { nums++; if (/[.,]\d{1,2}$/.test(t) || (typeof v === 'number' && !Number.isInteger(v))) decs++; else enteros++; }
+        largo += t.length; if (/\s/.test(t)) conEspacio++;
+        if (largoRef < 0) largoRef = t.length; else if (t.length !== largoRef) mismoLargoCod = false;
+      });
+      info.push({ j: j, llenos: llenos, ratioNum: llenos ? nums / llenos : 0, decs: decs,
+        promLargo: llenos ? largo / llenos : 0, ratioEsp: llenos ? conEspacio / llenos : 0,
+        pareceCodigo: llenos > 2 && mismoLargoCod && largoRef >= 4 && decs === 0 });
+    }
+    const minLlenos = Math.max(2, datos.length * 0.3);
+    const usados = new Set(['codigo', 'descripcion', 'costo'].map(function (c) { return map[c]; }).filter(function (v) { return v !== null; }));
+    // La "descripción" reconocida por título pero que en realidad es un código corto vs. un código que es texto largo
+    if (map.descripcion === null && map.codigo !== null && info[map.codigo] && info[map.codigo].ratioEsp > 0.5 && info[map.codigo].promLargo > 12) {
+      map.descripcion = map.codigo; map.codigo = null;
+      usados.delete(map.descripcion); usados.add(map.descripcion);
+    }
+    // El "costo" reconocido por título pero cuyas celdas no son números → se descarta
+    if (map.costo !== null && info[map.costo] && info[map.costo].ratioNum < 0.5) { usados.delete(map.costo); map.costo = null; }
+    if (map.costo === null) {
+      const cand = info.filter(function (c) { return !usados.has(c.j) && c.llenos >= minLlenos && c.ratioNum >= 0.7 && !c.pareceCodigo; });
+      const conDec = cand.filter(function (c) { return c.decs >= c.llenos * 0.3; });
+      const el = (conDec.length ? conDec : cand)[0];
+      if (el) { map.costo = el.j; usados.add(el.j); }
+    }
+    if (map.descripcion === null) {
+      const cand = info.filter(function (c) { return !usados.has(c.j) && c.llenos >= minLlenos && c.ratioNum < 0.5; })
+        .sort(function (a, b) { return b.promLargo - a.promLargo; });
+      if (cand[0] && cand[0].promLargo >= 5) { map.descripcion = cand[0].j; usados.add(cand[0].j); }
+    }
+    return map;
+  }
+
+  /**
    * Convierte la matriz de la planilla en filas de lista.
    * mapeo: { codigo, descripcion, costo } (índices de columna; codigo o descripcion pueden ser null,
    * pero al menos uno de los dos y costo son obligatorios).
@@ -515,40 +566,50 @@
   }
 
   // ─── PDF: reconstruir una tabla a partir de los textos con posición ─────────
-  /**
-   * paginas: [ [ {str, x, y, w, h}, ... ], ... ]   (y crece hacia arriba, como en PDF)
-   * Devuelve una matriz de filas × columnas de strings, igual que un CSV/Excel.
-   * 1) agrupa los textos en renglones por altura; 2) junta las palabras pegadas en celdas;
-   * 3) detecta las columnas por dónde hay texto en TODAS las páginas (los huecos verticales separan columnas).
-   */
-  function pdfAMatriz(paginas) {
-    const filasCeldas = []; // cada fila: [{x0,x1,txt}]
+  // paginas: [ [ {str, x, y, w, h}, ... ], ... ]   (y crece hacia arriba, como en PDF)
+
+  /** Agrupa los textos de cada página en renglones (por altura) y los ordena de izquierda a derecha. */
+  function pdfRenglones(paginas, tolF) {
+    const out = [];
     (paginas || []).forEach(function (items) {
       const it = (items || []).filter(function (t) { return t && String(t.str).trim() !== ''; })
         .map(function (t) { return { str: String(t.str), x: +t.x, y: +t.y, w: +t.w || 0, h: +t.h || 8 }; });
       if (!it.length) return;
       const hs = it.map(function (t) { return t.h; }).sort(function (a, b) { return a - b; });
       const hMed = hs[Math.floor(hs.length / 2)] || 8;
-      const tol = Math.max(1.5, hMed * 0.45);
+      const tol = Math.max(1.5, hMed * tolF);
       it.sort(function (a, b) { return b.y - a.y || a.x - b.x; });
       const renglones = [];
       it.forEach(function (t) {
         const ult = renglones[renglones.length - 1];
-        if (ult && Math.abs(ult.y - t.y) <= tol) { ult.items.push(t); }
+        if (ult && Math.abs(ult.y - t.y) <= tol) ult.items.push(t);
         else renglones.push({ y: t.y, items: [t] });
       });
-      renglones.forEach(function (r) {
-        r.items.sort(function (a, b) { return a.x - b.x; });
-        const celdas = [];
-        r.items.forEach(function (t) {
-          const c = celdas[celdas.length - 1];
-          const hueco = c ? t.x - c.x1 : Infinity;
-          if (c && hueco < Math.max(t.h, 6) * 0.6) { c.txt += (hueco > 0.5 ? ' ' : '') + t.str.trim(); c.x1 = Math.max(c.x1, t.x + t.w); }
-          else celdas.push({ x0: t.x, x1: t.x + t.w, txt: t.str.trim() });
-        });
-        filasCeldas.push(celdas);
-      });
+      renglones.forEach(function (r) { r.items.sort(function (a, b) { return a.x - b.x; }); out.push(r.items); });
     });
+    return out;
+  }
+
+  /** Junta textos pegados en celdas: si el hueco es menor a `gapF` veces la altura de la letra, es la misma celda. */
+  function pdfCeldas(items, gapF) {
+    const celdas = [];
+    items.forEach(function (t) {
+      const c = celdas[celdas.length - 1];
+      const hueco = c ? t.x - c.x1 : Infinity;
+      if (c && hueco < Math.max(t.h, 6) * gapF) { c.txt += (hueco > 0.5 ? ' ' : '') + t.str.trim(); c.x1 = Math.max(c.x1, t.x + t.w); }
+      else celdas.push({ x0: t.x, x1: t.x + t.w, txt: t.str.trim() });
+    });
+    return celdas;
+  }
+
+  /**
+   * Lectura "por columnas": detecta las columnas por dónde hay texto en TODAS las páginas
+   * (los huecos verticales separan columnas). opts: { gap (0.6), tolLinea (0.45) }.
+   */
+  function pdfAMatriz(paginas, opts) {
+    opts = opts || {};
+    const gapF = opts.gap || 0.6;
+    const filasCeldas = pdfRenglones(paginas, opts.tolLinea || 0.45).map(function (r) { return pdfCeldas(r, gapF); });
     if (!filasCeldas.length) return [];
 
     // Cobertura horizontal solo con renglones de 2+ celdas (los títulos de una sola celda no arman columnas)
@@ -559,16 +620,16 @@
     multi.forEach(function (f) { f.forEach(function (c) {
       for (let x = Math.max(0, Math.floor(c.x0)); x <= Math.min(N - 1, Math.ceil(c.x1)); x++) cob[x]++;
     }); });
-    const umbral = Math.max(2, Math.round(multi.length * 0.04));
+    const umbral = Math.max(2, Math.round(multi.length * (opts.umbralCob || 0.04)));
     let cols = []; let ini = -1;
     for (let x = 0; x <= N; x++) {
       const on = x < N && cob[x] >= umbral;
       if (on && ini < 0) ini = x;
       if (!on && ini >= 0) { cols.push({ a: ini, b: x - 1 }); ini = -1; }
     }
-    // Huecos muy chicos entre columnas (menos de 4 unidades) son el mismo bloque de texto
+    // Huecos muy chicos entre columnas son el mismo bloque de texto
     const uni = [];
-    cols.forEach(function (c) { const u = uni[uni.length - 1]; if (u && c.a - u.b < 4) u.b = c.b; else uni.push({ a: c.a, b: c.b }); });
+    cols.forEach(function (c) { const u = uni[uni.length - 1]; if (u && c.a - u.b < (opts.huecoMin || 4)) u.b = c.b; else uni.push({ a: c.a, b: c.b }); });
     cols = uni;
     if (!cols.length) return filasCeldas.map(function (f) { return f.map(function (c) { return c.txt; }); });
 
@@ -578,7 +639,7 @@
         const centro = (c.x0 + c.x1) / 2;
         let k = -1;
         for (let i = 0; i < cols.length; i++) if (centro >= cols[i].a && centro <= cols[i].b) { k = i; break; }
-        if (k < 0) { // cae en un hueco: la columna más cercana
+        if (k < 0) {
           let mejor = Infinity;
           cols.forEach(function (col, i) { const d = Math.min(Math.abs(centro - col.a), Math.abs(centro - col.b)); if (d < mejor) { mejor = d; k = i; } });
         }
@@ -586,13 +647,102 @@
       });
       return fila;
     });
-    // Sacar columnas totalmente vacías
     const usadas = cols.map(function (_, i) { return matriz.some(function (f) { return f[i] !== ''; }); });
     return matriz.map(function (f) { return f.filter(function (_, i) { return usadas[i]; }).map(function (v) { return v === '' ? null : v; }); });
   }
 
+  /**
+   * Lectura "por renglón": no depende de la posición de las columnas. En cada renglón toma como precio
+   * los números del final, como código la primera palabra si parece un código, y el resto como descripción.
+   * Sirve cuando el PDF está muy desalineado o lo convirtieron de otra forma.
+   */
+  function pdfPorRenglon(paginas) {
+    const filas = []; let maxImp = 1; let hayCodigo = 0;
+    pdfRenglones(paginas, 0.45).forEach(function (items) {
+      const texto = pdfCeldas(items, 0.6).map(function (c) { return c.txt; }).join(' ');
+      const tok = texto.split(/\s+/).filter(Boolean);
+      const imp = [];
+      let fin = tok.length;
+      while (fin > 0) {
+        const t = tok[fin - 1];
+        if (t === '$' || t === 'ARS') { fin--; continue; }
+        if (/%$/.test(t)) { if (/^\d[\d.,]*%$/.test(t)) { fin--; continue; } break; }
+        if (/^\$?-?\d[\d.,]*$/.test(t)) { imp.unshift(t.replace(/^\$/, '')); fin--; continue; }
+        break;
+      }
+      if (!imp.length) return;
+      if (/\b(p[aá]gina|pag\.|hoja|vigencia|vigente|fecha|tel|cuit|c\.u\.i\.t|total|subtotal|actualizad[ao])\b/i.test(tok.slice(0, fin).join(' '))) return;
+      const cab = tok.slice(0, fin);
+      if (!cab.length) return;
+      let codigo = null, desc = cab;
+      if (cab.length >= 2 && /\d/.test(cab[0]) && cab[0].length <= 18 && !/^\d{1,3}$/.test(cab[0])) { codigo = cab[0]; desc = cab.slice(1); }
+      if (codigo) hayCodigo++;
+      maxImp = Math.max(maxImp, Math.min(imp.length, 4));
+      filas.push({ codigo: codigo, desc: desc.join(' '), imp: imp.slice(0, 4) });
+    });
+    if (!filas.length) return [];
+    const conCodigo = hayCodigo >= filas.length * 0.5;
+    const enc = [];
+    if (conCodigo) enc.push('Código');
+    enc.push('Descripción');
+    for (let i = 1; i <= maxImp; i++) enc.push(i === 1 ? 'Precio' : 'Precio ' + i);
+    const out = [enc];
+    filas.forEach(function (f) {
+      const r = [];
+      if (conCodigo) r.push(f.codigo);
+      r.push(f.desc);
+      for (let i = 0; i < maxImp; i++) r.push(f.imp[i] === undefined ? null : f.imp[i]);
+      out.push(r);
+    });
+    return out;
+  }
+
+  /** Cuántos artículos con precio válido saca una lectura, y qué tan "limpia" es. */
+  function puntuarLectura(matriz) {
+    if (!matriz || matriz.length < 2) return { validas: 0, invalidas: 0, score: -1, mapeoCompleto: false };
+    const hi = detectarFilaEncabezado(matriz);
+    const map = sugerirMapeoInteligente(matriz, hi);
+    const r = extraerFilas(matriz, map, hi);
+    const completo = map.costo !== null && (map.codigo !== null || map.descripcion !== null);
+    let ancho = 0; r.filas.forEach(function (f) { if (f.descripcion && f.descripcion.length >= 3) ancho++; });
+    let conCod = 0; r.filas.forEach(function (f) { if (f.codigo) conCod++; });
+    // Con código de proveedor los vínculos son exactos y no dependen del nombre: se prefiere esa lectura
+    const score = r.filas.length + ancho * 0.25 + conCod * 0.3 - r.invalidas.length * 0.5 + (completo ? 5 : -20);
+    return { validas: r.filas.length, invalidas: r.invalidas.length, score: score, mapeoCompleto: completo, filaEnc: hi, mapeo: map };
+  }
+
+  /**
+   * Prueba varias formas de leer el mismo PDF, se queda con la que más artículos con precio saca
+   * y devuelve todas ordenadas (la mejor primero) para que la persona pueda cambiar de lectura.
+   * → [{ id, nombre, matriz, validas, invalidas, score }]
+   */
+  function pdfLecturas(paginas) {
+    const variantes = [
+      { id: 'columnas', nombre: 'Por columnas', hacer: function () { return pdfAMatriz(paginas); } },
+      { id: 'columnas-juntas', nombre: 'Por columnas (une más el texto)', hacer: function () { return pdfAMatriz(paginas, { gap: 1.3, huecoMin: 8 }); } },
+      { id: 'columnas-separadas', nombre: 'Por columnas (separa más el texto)', hacer: function () { return pdfAMatriz(paginas, { gap: 0.3, huecoMin: 2 }); } },
+      { id: 'columnas-renglones', nombre: 'Por columnas (renglones más tolerantes)', hacer: function () { return pdfAMatriz(paginas, { tolLinea: 0.9 }); } },
+      { id: 'renglon', nombre: 'Por renglón (precio al final de cada línea)', hacer: function () { return pdfPorRenglon(paginas); } }
+    ];
+    const vistas = []; const out = [];
+    variantes.forEach(function (v) {
+      let m; try { m = v.hacer(); } catch (e) { return; }
+      if (!m || !m.length) return;
+      const firma = m.length + '|' + (m[0] || []).length + '|' + JSON.stringify(m.slice(0, 40));
+      if (vistas.indexOf(firma) >= 0) return; // misma lectura que otra
+      vistas.push(firma);
+      const q = puntuarLectura(m);
+      out.push({ id: v.id, nombre: v.nombre, matriz: m, validas: q.validas, invalidas: q.invalidas, score: q.score });
+    });
+    out.forEach(function (l) { if (l.id === 'renglon') l.score -= 6; }); // a igualdad, se prefiere la lectura por columnas
+    out.sort(function (a, b) { return b.score - a.score; });
+    const mejor = out.length ? out[0].validas : 0;
+    // Se ocultan las lecturas que no sirven (mucho peor que la mejor), salvo que ninguna sirva
+    return mejor > 0 ? out.filter(function (l) { return l.validas >= mejor * 0.5; }) : out.slice(0, 1);
+  }
+
   return {
-    pdfAMatriz, parseNumero, parseCSV, detectarSeparador, detectarFilaEncabezado, sugerirMapeo, extraerFilas,
+    sugerirMapeoInteligente, pdfAMatriz, pdfPorRenglon, pdfLecturas, puntuarLectura, parseNumero, parseCSV, detectarSeparador, detectarFilaEncabezado, sugerirMapeo, extraerFilas,
     ajustarCosto, normalizarTexto, normCodigo, similitud, indexarArticulos, candidatosPorNombre,
     matchear, calcularPrecios, armarVistaPrevia, relacionesParaGuardar, redondear
   };

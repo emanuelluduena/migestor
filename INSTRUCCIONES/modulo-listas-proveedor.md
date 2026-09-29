@@ -38,10 +38,10 @@ Si falta algún archivo del módulo, la app sigue funcionando igual (el llamado 
 
 ## Limitaciones conocidas
 - No lee `.xls` viejo (guardar como `.xlsx` o CSV).
-- PDF: funciona con PDF que tienen texto (los que se pueden seleccionar). Si es un escaneo o foto, avisa y hay que pedir la lista en Excel/PDF con texto. Las columnas se arman por posición del texto; si una lista tiene un formato raro, revisá el paso de mapeo de columnas antes de aplicar.
+- PDF (lectura automática): el sistema prueba solo varias formas de leer el PDF (por columnas con distintas tolerancias y por renglón, con el precio al final de cada línea), elige la que más artículos con precio saca y muestra la lista de lecturas en "Cómo se leyó el PDF" para poder cambiar. Si los títulos de las columnas no se reconocen, mira el contenido (la columna de números = costo, la de texto largo = descripción). Funciona con PDF que tienen texto (los que se pueden seleccionar). Si es un escaneo o foto, avisa y hay que pedir la lista en Excel/PDF con texto. Las columnas se arman por posición del texto; si una lista tiene un formato raro, revisá el paso de mapeo de columnas antes de aplicar.
 - Los proveedores son por sucursal: la configuración y vínculos quedan atados al proveedor de la sucursal donde se configuró.
 - La vista previa muestra los valores de la sucursal activa.
 - Los precios se guardan sin redondear (igual que el cálculo actual).
 
 ## Pruebas
-`node --test "tests/**/*.test.js" --test-force-exit` (52 pruebas, incluye PDF de ejemplo). Recomendado además correr `npm test` en migestor-dev\testsuite.
+`node --test "tests/**/*.test.js" --test-force-exit` (62 pruebas, incluye PDF de ejemplo). Recomendado además correr `npm test` en migestor-dev\testsuite.

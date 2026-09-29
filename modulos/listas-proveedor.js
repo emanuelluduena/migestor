@@ -163,7 +163,7 @@
         return { nombre: h.sheet, matriz: h.data.map(function (fila) { return fila.map(celdaExcel); }) };
       }).filter(function (h) { return h.matriz.some(function (f) { return f.some(function (c) { return c !== null && c !== ''; }); }); });
     }
-    if (ext === 'pdf') return [{ nombre: 'PDF', matriz: await leerPDF(file) }];
+    if (ext === 'pdf') return await leerPDF(file);
     const buf = await file.arrayBuffer();
     let texto;
     try { texto = new TextDecoder('utf-8', { fatal: true }).decode(buf); }
@@ -210,9 +210,13 @@
       paginas.push(items);
     }
     if (textos < 5) throw new Error('Este PDF no tiene texto seleccionable (parece una foto o un escaneo). Pedile al proveedor la lista en Excel o en un PDF con texto.');
-    const matriz = Core.pdfAMatriz(paginas);
-    if (!matriz.length) throw new Error('No se pudo armar una tabla con ese PDF. Probá con la lista en Excel o CSV.');
-    return matriz;
+    // Se prueban varias formas de leer el PDF y se elige sola la que más artículos con precio saca.
+    const lecturas = Core.pdfLecturas(paginas).filter(function (l) { return l.matriz.length; });
+    if (!lecturas.length) throw new Error('No se pudo armar una tabla con ese PDF. Probá con la lista en Excel o CSV.');
+    return lecturas.map(function (l, i) {
+      return { nombre: (i === 0 ? '★ ' : '') + l.nombre + ' — ' + l.validas + ' artículos con precio' + (i === 0 ? ' (elegida automáticamente)' : ''),
+        matriz: l.matriz, esPdf: true };
+    });
   }
 
   function celdaExcel(c) {
@@ -347,7 +351,11 @@
           }).join('') + '</select>';
       };
       h += '<div class="divider" style="margin:14px 0"></div><div class="stit">2 · Columnas de la lista</div>';
-      if (S.hojas && S.hojas.length > 1) {
+      if (S.hojas && S.hojas.length && S.hojas[0].esPdf) {
+        h += '<div class="fg" style="max-width:520px;margin-bottom:10px"><label>Cómo se leyó el PDF</label><select onchange="ListasProvUI.hoja(this.value)">' +
+          S.hojas.map(function (x, i) { return '<option value="' + i + '"' + (i === S.hoja ? ' selected' : '') + '>' + esc(x.nombre) + '</option>'; }).join('') + '</select>' +
+          '<div class="sdesc">El sistema probó varias formas de leer este PDF y eligió la que mejor saca los precios. Revisá la tabla de abajo; si no se ve bien' + (S.hojas.length > 1 ? ', probá con otra lectura de esta lista' : '') + ' o pedile la lista al proveedor en Excel.</div></div>';
+      } else if (S.hojas && S.hojas.length > 1) {
         h += '<div class="fg" style="max-width:320px;margin-bottom:10px"><label>Hoja</label><select onchange="ListasProvUI.hoja(this.value)">' +
           S.hojas.map(function (x, i) { return '<option value="' + i + '"' + (i === S.hoja ? ' selected' : '') + '>' + esc(x.nombre) + '</option>'; }).join('') + '</select></div>';
       }
@@ -643,7 +651,7 @@
     }
     S.filaEnc = fila;
     const enc = m[fila] || [];
-    const sug = Core.sugerirMapeo(enc);
+    const sug = Core.sugerirMapeoInteligente(m, fila);
     const porNombre = function (campo) {
       const g = cfg && cfg[campo];
       if (!g) return null;
@@ -706,7 +714,7 @@
     },
 
     hoja(i) { S.hoja = parseInt(i, 10) || 0; S.matriz = S.hojas[S.hoja].matriz; reiniciarAnalisis(); sugerirParaHoja(); renderTodo(); },
-    filaEnc(v) { const n = Math.max(1, parseInt(v, 10) || 1); S.filaEnc = Math.min(n - 1, Math.max(0, S.matriz.length - 1)); const sug = Core.sugerirMapeo(S.matriz[S.filaEnc] || []); S.mapeo = { codigo: sug.codigo, descripcion: sug.descripcion, costo: sug.costo }; reiniciarAnalisis(); renderTodo(); },
+    filaEnc(v) { const n = Math.max(1, parseInt(v, 10) || 1); S.filaEnc = Math.min(n - 1, Math.max(0, S.matriz.length - 1)); const sug = Core.sugerirMapeoInteligente(S.matriz, S.filaEnc); S.mapeo = { codigo: sug.codigo, descripcion: sug.descripcion, costo: sug.costo }; reiniciarAnalisis(); renderTodo(); },
     mapear(campo, v) { S.mapeo[campo] = v === '' ? null : parseInt(v, 10); reiniciarAnalisis(); renderPaso2(); renderPaso3(); renderResultado(); },
     ajuste(campo, v) { S.ajuste[campo] = Number(v) || 0; if (S.paso >= 3) { recalcularVP(); renderPaso3(); } },
     decimal(v) { S.decimal = v; reiniciarAnalisis(); renderTodo(); },
