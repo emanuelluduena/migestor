@@ -178,6 +178,9 @@ tbody td{padding:9px 13px;vertical-align:middle;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="lib/JsBarcode.all.min.js"></script>
+<script src="lib/read-excel-file.min.js"></script>
+<script src="modulos/listas-proveedor-core.js"></script>
+<script src="modulos/listas-proveedor.js"></script>
 </head>
 <body>
   <div id="conn-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:100000;text-align:center;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;padding:8px 12px;color:white;"></div>
@@ -2340,7 +2343,7 @@ const MODS_NOMBRES = {
   ventas:'Ventas', caja:'Caja', estadisticas:'Estadísticas',
   gastos:'Gastos', contabilidad:'Contabilidad', precios:'Precios',
   config:'Configuración', bitacora:'Bitácora', importar:'Importar/Export.',
-  asistente:'Asistente IA', tareas:'Tareas', mensajes:'Mensajes', horarios:'Horarios', etiquetas:'Etiquetas', fidelizacion:'Fidelización'
+  asistente:'Asistente IA', tareas:'Tareas', mensajes:'Mensajes', horarios:'Horarios', etiquetas:'Etiquetas', fidelizacion:'Fidelización', listasprov:'Listas de proveedor'
 };
 const PERMISOS_ROL = {
   'Administrador': Object.keys(MODS_NOMBRES),
@@ -2658,6 +2661,7 @@ function renderMod(tab) {
   else if(tab==='horarios') renderHorarios();
   else if(tab==='etiquetas') renderEtiquetas();
   else if(tab==='fidelizacion') renderFidelizacion();
+  else if(tab==='listasprov' && typeof renderListasProv==='function') renderListasProv();
 }
 
 // ═══════════════════════ FIDELIZACIÓN ═══════════════════════
