@@ -7667,9 +7667,21 @@ doLogin = async function(silencioso) {
     const loginResp = await fetch(`${SB_URL}/functions/v1/login`, {
       method: 'POST',
       headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: usr, password: pass })
+      body: JSON.stringify({ username: usr, password: pass, app: 'gestor' })
     });
     const loginData = await loginResp.json();
+
+    // Las cuentas de la app de Fidelización suelta no entran a Mi Gestor (el servidor también lo controla)
+    if (loginData && loginData.error === 'sin_acceso') {
+      _ultimoErrorLogin = 'Tu cuenta no tiene acceso a este sistema. Ingresá desde la app de Fidelización.';
+      if (!silencioso) {
+        loginErr.style.display = 'block';
+        loginErr.textContent = _ultimoErrorLogin;
+      }
+      if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'Ingresar'; }
+      document.getElementById('login-pass').value = '';
+      return;
+    }
 
     if (!loginResp.ok || !loginData.token) {
       _ultimoErrorLogin = 'Usuario o contraseña incorrectos';
@@ -7690,6 +7702,14 @@ doLogin = async function(silencioso) {
 
     // Verificar límite de usuarios simultáneos del plan
     const negActual = await sbGet('negocios', `id=eq.${negocioId}`);
+    if (negActual.length && negActual[0].plan === 'solo_fidelizacion') {
+      SESSION_TOKEN = null;
+      loginErr.style.display = 'block';
+      loginErr.textContent = 'Tu cuenta no tiene acceso a este sistema. Ingresá desde la app de Fidelización.';
+      if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'Ingresar'; }
+      document.getElementById('login-pass').value = '';
+      return;
+    }
     const limiteUsuarios = negActual.length ? negActual[0].limite_usuarios : null;
     if (limiteUsuarios) {
       const haceCincoMin = new Date(Date.now() - 5*60*1000).toISOString();

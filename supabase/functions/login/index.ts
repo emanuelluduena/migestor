@@ -19,7 +19,7 @@ serve(async (req) => {
   }
 
   try {
-    const { username, password } = await req.json();
+    const { username, password, app } = await req.json();
 
     if (!username || !password) {
       return new Response(JSON.stringify({ error: "Falta usuario o contraseña" }), {
@@ -41,6 +41,19 @@ serve(async (req) => {
     }
 
     const usuario = usuarios[0];
+
+    // Mi Gestor completo (app: 'gestor') no acepta cuentas del plan solo_fidelizacion:
+    // esas cuentas entran únicamente por la app de Fidelización.
+    if (app === "gestor") {
+      const { data: neg } = await admin.from("negocios").select("plan").eq("id", usuario.negocio_id).maybeSingle();
+      if (neg && neg.plan === "solo_fidelizacion") {
+        return new Response(JSON.stringify({ error: "sin_acceso" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const secretKey = new TextEncoder().encode(JWT_SECRET);
 
     const token = await new SignJWT({
