@@ -2017,8 +2017,20 @@ window.addEventListener('online', procesarColaSync);
 window.addEventListener('offline', actualizarBannerConexion);
 actualizarBannerConexion();
 
+// Además del mensaje, manda de dónde viene el visitante (navegador interno de Facebook/Instagram,
+// Chrome, etc.) y las primeras líneas del stack, para distinguir un error propio de uno inyectado
+// por el navegador o una extensión.
+function _detalleError(ev) {
+  var ua = navigator.userAgent || '';
+  var origen = /FBAN|FBAV|FB_IAB/i.test(ua) ? 'Facebook in-app'
+    : /Instagram/i.test(ua) ? 'Instagram in-app'
+    : /WhatsApp/i.test(ua) ? 'WhatsApp in-app'
+    : /Android/i.test(ua) ? 'Android' : /iPhone|iPad/i.test(ua) ? 'iOS' : 'Escritorio/otro';
+  var stack = (ev.error && ev.error.stack) ? String(ev.error.stack).split('\n').slice(0, 3).join(' | ') : 'sin stack';
+  return ' | Navegador: ' + origen + ' | Stack: ' + stack + ' | UA: ' + ua.slice(0, 120);
+}
 window.addEventListener('error', function(ev) {
-  avisarSoporte('js_error', (ev.message || 'Error desconocido') + ' — ' + (ev.filename || '') + ':' + (ev.lineno || ''));
+  avisarSoporte('js_error', (ev.message || 'Error desconocido') + ' — ' + (ev.filename || '') + ':' + (ev.lineno || '') + ':' + (ev.colno || '') + _detalleError(ev));
 });
 window.addEventListener('unhandledrejection', function(ev) {
   avisarSoporte('js_promise_rejection', (ev.reason && ev.reason.message) ? ev.reason.message : String(ev.reason));
