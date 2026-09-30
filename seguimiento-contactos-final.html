@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seguimiento de contactos - DevKore</title>
+<style>
+  :root {
+    --bg: #0b0f0e;
+    --card: #12211c;
+    --border: #1d332c;
+    --text: #f2fbf8;
+    --muted: #86a89e;
+    --accent: #3dfcd4;
+    --wa: #25D366;
+    --amber: #f2b84b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px 12px 60px;
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: var(--text);
+  }
+  h1 { font-size: 19px; margin: 4px 0 2px; }
+  p.sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 2px; }
+  .tab {
+    flex-shrink: 0; padding: 8px 12px; border-radius: 20px; font-size: 12.5px;
+    background: var(--card); border: 1px solid var(--border); color: var(--muted);
+    cursor: pointer; white-space: nowrap;
+  }
+  .tab.active { background: var(--accent); color: #06120d; border-color: var(--accent); font-weight: 700; }
+  .tab .n { opacity: 0.75; margin-left: 3px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 13px 14px; margin-bottom: 9px;
+  }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .name { font-size: 14.5px; font-weight: 600; }
+  .meta { font-size: 12px; color: var(--muted); margin-top: 3px; text-transform: capitalize; }
+  .status { font-size: 11px; margin-top: 5px; color: var(--amber); }
+  .status.ok { color: var(--accent); }
+  .btns { display: flex; gap: 6px; flex-shrink: 0; }
+  .btn {
+    text-decoration: none; font-weight: 700; font-size: 12px; padding: 9px 11px;
+    border-radius: 8px; white-space: nowrap; border: none; cursor: pointer;
+  }
+  .btn-wa { background: var(--wa); color: #06120d; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .empty { color: var(--muted); font-size: 13px; padding: 30px 10px; text-align: center; }
+  .loading { color: var(--muted); font-size: 13px; padding: 30px 10px; text-align: center; }
+  .err { color: #ff8a80; font-size: 13px; padding: 16px 10px; text-align: center; }
+</style>
+</head>
+<body>
+  <h1>Seguimiento de contactos</h1>
+  <p class="sub">Tocá un negocio para enviar el mensaje que corresponde — el estado se guarda solo en la base.</p>
+  <div class="tabs" id="tabs"></div>
+  <div id="list"><div class="loading">Cargando...</div></div>
+
+<script>
+// ── Conexión a Supabase (mismo proyecto que usa Mi Gestor) ──
+const SB_URL = "https://yabschiaphpiozajnwxx.supabase.co";
+const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhYnNjaGlhcGhwaW96YWpud3h4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwODEzMjgsImV4cCI6MjA5NzY1NzMyOH0.QItR9TwvX8EOSO3tVE1_9XBfa8tN_hiF2Tq4AYF_d-w";
+const TABLE = "prospectos_whatsapp";
+
+async function sbGet(qs) {
+  const res = await fetch(`${SB_URL}/rest/v1/${TABLE}?${qs}`, {
+    headers: { apikey: SB_ANON, Authorization: `Bearer ${SB_ANON}` }
+  });
+  if (!res.ok) throw new Error("GET falló: " + res.status);
+  return res.json();
+}
+
+async function sbPatch(digits, patch) {
+  const res = await fetch(`${SB_URL}/rest/v1/${TABLE}?digits=eq.${digits}`, {
+    method: "PATCH",
+    headers: {
+      apikey: SB_ANON, Authorization: `Bearer ${SB_ANON}`,
+      "Content-Type": "application/json", Prefer: "return=minimal"
+    },
+    body: JSON.stringify(patch)
+  });
+  if (!res.ok) throw new Error("PATCH falló: " + res.status);
+}
+
+const FOLLOWUP_DAYS = 7;
+
+const FIRST_MSG_VARIANTS = [
+  "Hola! Soy Emanuel, desarrollador de DevKore (Córdoba) — hacemos software para negocios, desde sistemas de gestión hasta páginas web. " +
+    "Te dejo la demo de Mi Gestor, el sistema que armamos para negocios como el tuyo, para que la pruebes gratis ahora mismo, sin registrarte: " +
+    "https://migestor.com.ar/?demo=1&origen=whatsapp-contacto1\n" +
+    "📦 Stock, ventas y caja desde el celu o la compu\n" +
+    "🎁 Fidelización — tus clientes suman puntos solos en cada compra y vos definís los premios\n" +
+    "📋 Subís la lista de precios de tu proveedor y el sistema actualiza tus costos y precios solo, sin cargar producto por producto\n" +
+    "🛠️ ¿Te falta algo puntual para tu negocio? También lo hacemos a medida\n" +
+    "💰 Todo incluido en un solo precio mensual, sin módulos aparte\n" +
+    "📱 Instagram y Facebook: @solucionesdevkore\n" +
+    "Cualquier duda te ayudo yo directamente. " +
+    "Y si hay algo que no te cierra o que le falta, contame — me sirve un montón para seguir mejorándolo.\n" +
+    "Si ya tenés tu propio sistema de ventas y no querés cambiarlo, también armamos Fidelización sola, como módulo aparte, " +
+    "para que tus clientes sumen puntos sin tocar nada de lo que ya usás: https://fidelizacion.migestor.com.ar/?demo=1",
+
+  "Hola, buenas! Mi nombre es Emanuel y armo software para negocios acá en Córdoba (DevKore) — sistemas de gestión y también páginas web. " +
+    "Para negocios como el tuyo armamos Mi Gestor: control de stock, ventas y caja, con fidelización de clientes incluida " +
+    "(puntos por compra, vos elegís los premios) y todo en una sola cuota mensual, sin sorpresas ni módulos aparte. " +
+    "Y si trabajás con proveedores que te mandan lista de precios, el sistema te la matchea con tus productos una vez y después actualiza costos y precios solo cada vez que subís una lista nueva. " +
+    "Te dejo la demo gratis para que la mires vos mismo, no hace falta registrarte: " +
+    "https://migestor.com.ar/?demo=1&origen=whatsapp-contacto1\n" +
+    "Si necesitás algo más puntual también hacemos desarrollos a medida. Cualquier consulta, estoy para ayudarte. " +
+    "Instagram/Facebook: @solucionesdevkore\n" +
+    "Y si ya tenés tu sistema de ventas armado y no te interesa cambiarlo, también vendemos Fidelización por separado — " +
+    "se suma a lo que ya usás, sin reemplazar nada: https://fidelizacion.migestor.com.ar/?demo=1",
+
+  "Hola! Te escribe Emanuel de DevKore 👋 Armamos Mi Gestor, un sistema para manejar stock, ventas y caja de tu negocio desde el celular, " +
+    "con fidelización de clientes incluida y todo en un solo precio mensual (sin módulos aparte). " +
+    "Ahora también podés subir la lista de precios de tu proveedor y el sistema te actualiza los costos y precios automáticamente, sin tener que cargar uno por uno. " +
+    "Podés probarlo gratis, sin registro: https://migestor.com.ar/?demo=1&origen=whatsapp-contacto1\n" +
+    "También hacemos páginas web y desarrollos a medida si te interesa algo específico para tu negocio. " +
+    "Cualquier duda, escribime. Nos encontrás en Insta/Face como @solucionesdevkore\n" +
+    "Dato: si no querés cambiar tu sistema actual, la Fidelización también la vendemos sola — la probás acá: " +
+    "https://fidelizacion.migestor.com.ar/?demo=1",
+];
+
+const FOLLOW_MSG_VARIANTS = [
+  "Hola! Soy Emanuel, de DevKore / Mi Gestor. Te dejo de nuevo el link de la demo, por si te quedó pendiente: " +
+    "https://migestor.com.ar/?demo=1&origen=whatsapp-seguimiento1\n" +
+    "Te escribí hace unos días sobre el sistema de gestión para tu negocio — tiene fidelización de clientes " +
+    "(puntos automáticos por compra), todo en un solo precio mensual, sin módulos aparte, y también hacemos desarrollos a medida. " +
+    "¿Llegaste a mirarlo o te quedó alguna duda? Instagram y Facebook: @solucionesdevkore\n" +
+    "Si lo que te interesa es solo la parte de fidelización (sin cambiar tu sistema de ventas), también la tenemos " +
+    "como producto aparte: https://fidelizacion.migestor.com.ar/?demo=1",
+
+  "Hola, buenas! Emanuel de DevKore otra vez — hace unos días te había comentado sobre Mi Gestor, el sistema de gestión con fidelización " +
+    "de clientes y precio único mensual. Te vuelvo a dejar la demo por si no llegaste a verla: " +
+    "https://migestor.com.ar/?demo=1&origen=whatsapp-seguimiento1\n" +
+    "Cualquier duda me escribís sin problema. Y si preferís probar solo la fidelización de clientes por separado, " +
+    "sin tocar tu sistema actual, esta es la demo: https://fidelizacion.migestor.com.ar/?demo=1",
+];
+
+function pickVariant(list, digits) {
+  let hash = 0;
+  for (let i = 0; i < digits.length; i++) hash = (hash * 31 + digits.charCodeAt(i)) >>> 0;
+  return list[hash % list.length];
+}
+
+function firstMsg(digits) {
+  return pickVariant(FIRST_MSG_VARIANTS, digits || String(Math.random()));
+}
+function followMsg(digits) {
+  return pickVariant(FOLLOW_MSG_VARIANTS, digits || String(Math.random()));
+}
+
+function waLink(digits, text) {
+  return "https://wa.me/" + digits + "?text=" + encodeURIComponent(text);
+}
+
+function daysSince(iso) {
+  if (!iso) return Infinity;
+  return (Date.now() - new Date(iso).getTime()) / 86400000;
+}
+
+let leads = [];
+let currentTab = "nuevos";
+
+function classify(lead) {
+  if (lead.status === "sin_whatsapp") return "sinwsp";
+  if (lead.status === "respondio") return "respondieron";
+  if (lead.status === "contactado" && !lead.follow_up_at && daysSince(lead.first_contact_at) >= FOLLOWUP_DAYS) return "seguimiento";
+  if (lead.status === "contactado" && !lead.follow_up_at) return "espera";
+  if (lead.follow_up_at) return "seguido";
+  return "nuevos";
+}
+
+function render() {
+  const buckets = { nuevos: [], seguimiento: [], espera: [], seguido: [], respondieron: [], sinwsp: [] };
+  for (const lead of leads) buckets[classify(lead)].push(lead);
+
+  const tabDefs = [
+    ["nuevos", "Para contactar", buckets.nuevos.length],
+    ["seguimiento", "Para seguimiento", buckets.seguimiento.length],
+    ["espera", "Esperando respuesta", buckets.espera.length],
+    ["seguido", "Ya con seguimiento", buckets.seguido.length],
+    ["respondieron", "Respondieron", buckets.respondieron.length],
+    ["sinwsp", "Sin WhatsApp", buckets.sinwsp.length],
+  ];
+
+  const tabsEl = document.getElementById("tabs");
+  tabsEl.innerHTML = "";
+  tabDefs.forEach(([key, label, n]) => {
+    const el = document.createElement("div");
+    el.className = "tab" + (key === currentTab ? " active" : "");
+    el.innerHTML = label + '<span class="n">' + n + "</span>";
+    el.onclick = () => { currentTab = key; render(); };
+    tabsEl.appendChild(el);
+  });
+
+  const listEl = document.getElementById("list");
+  const items = buckets[currentTab];
+  if (items.length === 0) {
+    listEl.innerHTML = '<div class="empty">No hay negocios en esta lista por ahora.</div>';
+    return;
+  }
+
+  listEl.innerHTML = "";
+  items.forEach(lead => {
+    const { nombre, rubro, localidad, telefono, digits } = lead;
+
+    const card = document.createElement("div");
+    card.className = "card";
+
+    let statusText = "";
+    if (lead.first_contact_at) {
+      const d = Math.floor(daysSince(lead.first_contact_at));
+      statusText = "Contactado hace " + d + (d === 1 ? " día" : " días");
+      if (lead.follow_up_at) statusText += " · seguimiento enviado";
+    }
+
+    let actionBtn = "";
+    let noWaBtn = "";
+    if (currentTab === "nuevos") {
+      actionBtn = '<a class="btn btn-wa" data-act="first" data-digits="' + digits + '" href="' + waLink(digits, firstMsg(digits)) + '" target="_blank" rel="noopener">Abrir WhatsApp</a>';
+      noWaBtn = '<button class="btn btn-ghost" data-act="nowa" data-digits="' + digits + '">Sin WhatsApp</button>';
+    } else if (currentTab === "seguimiento") {
+      actionBtn = '<a class="btn btn-wa" data-act="follow" data-digits="' + digits + '" href="' + waLink(digits, followMsg(digits)) + '" target="_blank" rel="noopener">Enviar seguimiento</a>';
+    }
+
+    const markBtn = (currentTab === "espera" || currentTab === "seguido")
+      ? '<button class="btn btn-ghost" data-act="mark" data-digits="' + digits + '">Marcar respondió</button>'
+      : "";
+
+    card.innerHTML =
+      '<div class="row">' +
+        '<div>' +
+          '<div class="name">' + nombre + '</div>' +
+          '<div class="meta">' + rubro + ' · ' + localidad + ' · ' + telefono + '</div>' +
+          (statusText ? '<div class="status' + (lead.status === "respondio" ? " ok" : "") + '">' + statusText + '</div>' : "") +
+        '</div>' +
+        '<div class="btns">' + actionBtn + markBtn + noWaBtn + '</div>' +
+      '</div>';
+
+    listEl.appendChild(card);
+  });
+
+  listEl.querySelectorAll('[data-act="nowa"]').forEach(el => {
+    el.addEventListener("click", async () => {
+      const digits = el.getAttribute("data-digits");
+      const lead = leads.find(l => l.digits === digits);
+      lead.status = "sin_whatsapp";
+      render();
+      try { await sbPatch(digits, { status: "sin_whatsapp" }); }
+      catch (e) { console.error(e); }
+    });
+  });
+
+  listEl.querySelectorAll('[data-act="first"]').forEach(el => {
+    el.addEventListener("click", async () => {
+      const digits = el.getAttribute("data-digits");
+      const lead = leads.find(l => l.digits === digits);
+      const nowIso = new Date().toISOString();
+      lead.status = "contactado"; lead.first_contact_at = nowIso;
+      render();
+      try { await sbPatch(digits, { status: "contactado", first_contact_at: nowIso }); }
+      catch (e) { console.error(e); }
+    });
+  });
+  listEl.querySelectorAll('[data-act="follow"]').forEach(el => {
+    el.addEventListener("click", async () => {
+      const digits = el.getAttribute("data-digits");
+      const lead = leads.find(l => l.digits === digits);
+      const nowIso = new Date().toISOString();
+      lead.follow_up_at = nowIso;
+      render();
+      try { await sbPatch(digits, { follow_up_at: nowIso }); }
+      catch (e) { console.error(e); }
+    });
+  });
+  listEl.querySelectorAll('[data-act="mark"]').forEach(el => {
+    el.addEventListener("click", async () => {
+      const digits = el.getAttribute("data-digits");
+      const lead = leads.find(l => l.digits === digits);
+      lead.status = "respondio";
+      render();
+      try { await sbPatch(digits, { status: "respondio" }); }
+      catch (e) { console.error(e); }
+    });
+  });
+}
+
+async function init() {
+  try {
+    leads = await sbGet("select=nombre,rubro,localidad,telefono,digits,status,first_contact_at,follow_up_at&order=localidad.asc,nombre.asc");
+    render();
+  } catch (e) {
+    console.error(e);
+    document.getElementById("list").innerHTML = '<div class="err">No se pudo conectar con la base. Revisá tu conexión y recargá la página.</div>';
+  }
+}
+
+init();
+</script>
+</body>
+</html>
