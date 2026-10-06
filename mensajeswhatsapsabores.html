@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>WhatsApp Sabores</title>
+<style>
+:root{
+  --bg:#0b141a; --panel:#111b21; --panel-2:#1f2c34;
+  --texto:#e9edef; --texto-sec:#8696a0; --borde:#2a3942;
+  --wa:#00a884; --wa-2:#008069; --wa-bg:#0b3d31;
+  --err:#ff8a80; --aviso:#f2b84b;
+  --radio:14px; --radio-sm:10px;
+  color-scheme: dark;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--texto);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding-inline:14px;}
+.wrap{max-width:640px;margin:0 auto;padding-block:20px 60px;}
+header{margin-bottom:14px;}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--wa);margin-bottom:4px;}
+h1{font-size:19px;font-weight:700;margin:0 0 4px;}
+.sub{color:var(--texto-sec);font-size:13px;line-height:1.5;max-width:56ch;}
+
+.login{background:var(--panel);border:1px solid var(--borde);border-radius:var(--radio);padding:18px 16px;margin-top:24px;}
+.login label{display:block;font-size:13px;font-weight:700;margin-bottom:8px;}
+.login input{width:100%;border:1px solid var(--borde);border-radius:var(--radio-sm);padding:12px;font-size:15px;background:var(--panel-2);color:var(--texto);outline:none;font-family:inherit;}
+.login input:focus{border-color:var(--wa);}
+.login button{margin-top:10px;width:100%;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;background:var(--wa);color:#04140f;cursor:pointer;font-family:inherit;}
+.err{color:var(--err);font-size:13px;margin-top:10px;}
+
+.buscador{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--borde);border-radius:var(--radio);padding:11px 14px;margin:14px 0 10px;}
+.buscador input{border:none;background:none;outline:none;font-size:14.5px;flex:1;color:var(--texto);font-family:inherit;}
+.buscador input::placeholder{color:var(--texto-sec);}
+
+.tabs{display:flex;gap:6px;background:var(--panel);border-radius:20px;padding:4px;margin-bottom:14px;overflow-x:auto;}
+.tabs button{flex:1;white-space:nowrap;border:none;background:none;color:var(--texto-sec);font-size:13px;font-weight:600;padding:9px 10px;border-radius:16px;cursor:pointer;font-family:inherit;}
+.tabs button.activo{background:var(--wa);color:#04140f;}
+
+.panel-msg{background:var(--panel);border:1px solid var(--borde);border-radius:var(--radio);padding:14px 16px;margin-bottom:12px;}
+.panel-msg h2{font-size:13px;font-weight:700;margin:0 0 6px;}
+.panel-msg p.hint{font-size:11.5px;color:var(--texto-sec);margin:0 0 10px;line-height:1.6;}
+textarea{width:100%;min-height:150px;resize:vertical;border:1px solid var(--borde);border-radius:var(--radio-sm);padding:10px 12px;font-family:inherit;font-size:13.5px;line-height:1.45;background:var(--panel-2);color:var(--texto);outline:none;}
+textarea:focus{border-color:var(--wa);}
+code{background:var(--wa-bg);color:var(--wa);padding:1px 5px;border-radius:4px;font-size:12px;}
+
+.lista{display:flex;flex-direction:column;gap:10px;margin-top:16px;}
+.card{background:var(--panel);border:1px solid var(--borde);border-radius:var(--radio);padding:14px 16px;}
+.card .nombre{font-size:15px;font-weight:700;margin:0 0 3px;}
+.card .meta{font-size:12.5px;color:var(--texto-sec);margin:0 0 2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.card .tel{font-size:12.5px;color:var(--texto-sec);font-variant-numeric:tabular-nums;margin:0 0 4px;}
+.card .estado{font-size:11.5px;color:var(--wa);margin:0 0 10px;}
+.card .acciones{display:flex;gap:8px;margin-top:10px;}
+.badge{font-size:11px;font-weight:700;border-radius:20px;padding:2px 8px;border:1px solid var(--borde);}
+.badge.ok{color:var(--wa);border-color:var(--wa-bg);background:var(--wa-bg);}
+.badge.info{color:var(--aviso);border-color:#4a3d1a;background:#2a2410;}
+.badge.warn{color:var(--err);border-color:#4a2320;background:#2a1412;}
+.btn{flex:1;text-align:center;border-radius:8px;padding:10px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;border:1px solid transparent;}
+.btn-wa{background:var(--wa);color:#04140f;}
+.btn-wa:active{background:var(--wa-2);}
+.btn-ghost{background:transparent;color:var(--texto-sec);border-color:var(--borde);}
+.btn-off{background:var(--panel-2);color:var(--texto-sec);border-color:var(--borde);cursor:default;}
+.pts{font-variant-numeric:tabular-nums;color:var(--wa);font-weight:700;}
+.vacio{text-align:center;padding:40px 16px;color:var(--texto-sec);font-size:13.5px;}
+footer{margin-top:20px;font-size:11px;color:var(--texto-sec);text-align:center;}
+.hidden{display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Almacén Natural Sabores de la Tierra · Fidelización</div>
+    <h1>Envíos de WhatsApp a clientes</h1>
+    <p class="sub" id="sub">Ingresá la clave para ver la lista de clientes.</p>
+  </header>
+
+  <form class="login" id="login">
+    <label for="clave">Clave de acceso</label>
+    <input id="clave" type="password" autocomplete="current-password" autofocus>
+    <button type="submit">Entrar</button>
+    <div class="err hidden" id="err"></div>
+  </form>
+
+  <div id="app" class="hidden">
+    <div class="buscador">🔎<input id="buscar" placeholder="Buscar por nombre..."></div>
+
+    <div class="tabs" id="tabs">
+      <button class="activo" data-f="pendientes">Pendientes <span id="n-pendientes">0</span></button>
+      <button data-f="enviados">Enviados <span id="n-enviados">0</span></button>
+      <button data-f="sin">Sin teléfono <span id="n-sin">0</span></button>
+      <button data-f="todos">Todos <span id="n-todos">0</span></button>
+    </div>
+
+    <div class="panel-msg">
+      <h2>Mensaje para clientes con DNI cargado</h2>
+      <p class="hint">Se abre precargado al tocar "Abrir WhatsApp" y el cliente pasa solo a "Enviados". Podés usar <code>{{nombre}}</code>, <code>{{puntos_texto}}</code> (ej. "12 puntos"), <code>{{puntos}}</code> y <code>{{link_puntos}}</code>. Los puntos salen en vivo de Mi Gestor, iguales a los de la página de consulta.</p>
+      <textarea id="mensaje-con">¡Hola {{nombre}}! 🌿 Te contamos que estamos acercando cada vez más nuestro local a vos. Ahora podés pedir por nuestra web: https://saboresdelatierradiet.com.ar — hacés el pedido y te lo llevamos dentro de las 72 hs hábiles, y por ser cliente fidelizado tenés un 10% de descuento comprando desde la web.
+
+Podés ver tus puntos (hoy tenés {{puntos_texto}}) y los premios para canjear, con tu DNI, acá: {{link_puntos}}
+
+Si tu DNI no aparece o tenés alguna duda, escribinos al 351 542 6971. ¡Te esperamos!</textarea>
+    </div>
+
+    <div class="panel-msg">
+      <h2>Mensaje para clientes sin DNI</h2>
+      <p class="hint">Se usa con los clientes que todavía no tienen DNI cargado. <code>{{link_dni}}</code> es el link personal de cada cliente para cargarlo (lo completa solo).</p>
+      <textarea id="mensaje-sin">¡Hola {{nombre}}! 🌿 Te contamos que estamos acercando cada vez más nuestro local a vos. Ahora podés pedir por nuestra web: https://saboresdelatierradiet.com.ar — hacés el pedido y te lo llevamos dentro de las 72 hs hábiles, y por ser cliente fidelizado tenés un 10% de descuento comprando desde la web.
+
+Para que puedas ver tus puntos y premios necesitamos tu DNI. Cargalo en un minuto desde tu link personal: {{link_dni}}
+
+Después consultá tus puntos con tu DNI acá: {{link_puntos}}
+
+Cualquier duda escribinos al 351 542 6971. ¡Te esperamos!</textarea>
+    </div>
+
+    <div class="lista" id="lista"></div>
+    <div id="vacio" class="vacio hidden">No hay clientes en esta lista.</div>
+    <footer>Números en formato WhatsApp Argentina (54 9 + código de área + número).</footer>
+  </div>
+</div>
+
+<script>
+const SB_URL = "https://yabschiaphpiozajnwxx.supabase.co";
+const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhYnNjaGlhcGhwaW96YWpud3h4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwODEzMjgsImV4cCI6MjA5NzY1NzMyOH0.QItR9TwvX8EOSO3tVE1_9XBfa8tN_hiF2Tq4AYF_d-w";
+const KEY_STORE = "sabores_clave";
+
+// Cuenta activa "Sabores de la Tierra" en Mi Gestor
+const NEGOCIO_ID = "ce08ff67-ecf6-491d-be14-838ff82a3a35";
+const LINK_PUNTOS = "https://www.migestor.com.ar/puntos.html?n=" + NEGOCIO_ID;
+const LINK_DNI_BASE = "https://www.migestor.com.ar/cargar-dni.html?t=";
+
+let clave = "";
+let clientes = [];
+let filtro = "pendientes";
+
+function guardarClave(v){ try { v ? localStorage.setItem(KEY_STORE, v) : localStorage.removeItem(KEY_STORE); } catch(e){} }
+function leerClave(){ try { return localStorage.getItem(KEY_STORE) || ""; } catch(e){ return ""; } }
+
+async function rpc(fn, body){
+  const res = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: SB_ANON, Authorization: `Bearer ${SB_ANON}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    let msg = "";
+    try { msg = (await res.json()).message || ""; } catch(e){}
+    const err = new Error(msg || ("Error " + res.status));
+    err.claveIncorrecta = /clave incorrecta/i.test(msg);
+    throw err;
+  }
+  const txt = await res.text();
+  return txt ? JSON.parse(txt) : null;
+}
+
+function escHtml(s){
+  return String(s == null ? "" : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function textoPuntos(n){
+  return n === 1 ? "1 punto" : n.toLocaleString("es-AR") + " puntos";
+}
+
+// Clientes con link personal de carga de DNI usan el mensaje "sin DNI"
+function usaMensajeSinDni(c){ return !!c.token_dni; }
+
+// Sin cuenta en Mi Gestor, o sin DNI y sin link: no se puede armar el mensaje bien
+function necesitaRevision(c){ return !!c.sin_cruce || (!c.tiene_dni && !c.token_dni); }
+
+function mensajePersonal(c){
+  const t = document.getElementById(usaMensajeSinDni(c) ? "mensaje-sin" : "mensaje-con").value;
+  const n = Number(c.puntos) || 0;
+  const linkDni = c.token_dni ? LINK_DNI_BASE + encodeURIComponent(c.token_dni) : "";
+  return t
+    .replace(/{{\s*nombre\s*}}/gi, () => c.nombre)
+    .replace(/{{\s*puntos_texto\s*}}/gi, () => textoPuntos(n))
+    .replace(/{{\s*puntos\s*}}/gi, () => String(n))
+    .replace(/{{\s*link_puntos\s*}}/gi, () => LINK_PUNTOS)
+    .replace(/{{\s*link_dni\s*}}/gi, () => linkDni);
+}
+
+function setFiltro(f){
+  filtro = f;
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("activo", b.dataset.f === f));
+  render();
+}
+
+function render(){
+  const q = (document.getElementById("buscar").value || "").toLowerCase().trim();
+  const conWa = clientes.filter(c => c.wa);
+  const pend = conWa.filter(c => c.status !== "enviado");
+  const env = conWa.filter(c => c.status === "enviado");
+  const sin = clientes.filter(c => !c.wa);
+  document.getElementById("n-pendientes").textContent = pend.length;
+  document.getElementById("n-enviados").textContent = env.length;
+  document.getElementById("n-sin").textContent = sin.length;
+  document.getElementById("n-todos").textContent = clientes.length;
+
+  let base = filtro === "pendientes" ? pend : filtro === "enviados" ? env : filtro === "sin" ? sin : clientes;
+  const filas = base.filter(c => !q || c.nombre.toLowerCase().includes(q));
+
+  document.getElementById("vacio").classList.toggle("hidden", filas.length > 0);
+  document.getElementById("lista").innerHTML = filas.map(c => {
+    let accion;
+    let estado = "";
+    let badge = "";
+    const n = Number(c.puntos) || 0;
+
+    if (c.sin_cruce) badge = '<span class="badge warn">Sin cuenta en Mi Gestor</span>';
+    else if (c.tiene_dni) badge = '<span class="badge ok">DNI cargado</span>';
+    else if (c.token_dni) badge = '<span class="badge info">Sin DNI · va con su link para cargarlo</span>';
+    else badge = '<span class="badge warn">Sin DNI y sin link</span>';
+
+    if (c.wa && necesitaRevision(c)) {
+      accion = `<span class="btn btn-off">Revisar antes de enviar</span>`;
+    } else if (c.wa) {
+      const href = `https://wa.me/${c.wa}?text=${encodeURIComponent(mensajePersonal(c))}`;
+      const aviso = c.valido ? "" : ' title="Número corto o incompleto — revisalo antes de mandar"';
+      const enviado = c.status === "enviado";
+      accion = `<a class="btn btn-wa" data-act="enviar" data-id="${c.id}" href="${href}" target="_blank" rel="noopener"${aviso}>${enviado ? "Abrir de nuevo" : "Abrir WhatsApp"}${c.valido ? "" : " ⚠️"}</a>`;
+      if (enviado) {
+        const f = c.contactado_at ? new Date(c.contactado_at).toLocaleDateString("es-AR") : "";
+        estado = `<div class="estado">✓ Enviado${f ? " · " + f : ""}</div>`;
+        accion += `<button class="btn btn-ghost" data-act="deshacer" data-id="${c.id}">Deshacer</button>`;
+      }
+    } else {
+      accion = `<span class="btn btn-off">Sin WhatsApp</span>`;
+    }
+    const pts = c.sin_cruce ? "— pts" : `${n.toLocaleString("es-AR")} pts`;
+    return `<div class="card">
+      <div class="nombre">${escHtml(c.nombre)}</div>
+      <div class="meta"><span class="pts">${escHtml(pts)}</span>${badge}</div>
+      <div class="tel">${escHtml(c.telefono || "Sin teléfono cargado")}</div>
+      ${estado}
+      <div class="acciones">${accion}</div>
+    </div>`;
+  }).join("");
+}
+
+async function marcar(id, status){
+  const c = clientes.find(x => x.id === id);
+  if (!c) return;
+  c.status = status;
+  c.contactado_at = status === "enviado" ? new Date().toISOString() : null;
+  render();
+  try { await rpc("sabores_marcar", { p_clave: clave, p_id: id, p_status: status }); }
+  catch(e){ console.error(e); }
+}
+
+document.getElementById("lista").addEventListener("click", e => {
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const id = Number(el.dataset.id);
+  if (el.dataset.act === "enviar") {
+    const c = clientes.find(x => x.id === id);
+    if (c && c.status !== "enviado") marcar(id, "enviado");
+  } else if (el.dataset.act === "deshacer") {
+    marcar(id, "pendiente");
+  }
+});
+
+document.getElementById("tabs").addEventListener("click", e => {
+  const b = e.target.closest("button[data-f]");
+  if (b) setFiltro(b.dataset.f);
+});
+document.getElementById("buscar").addEventListener("input", render);
+document.getElementById("mensaje-con").addEventListener("input", render);
+document.getElementById("mensaje-sin").addEventListener("input", render);
+
+async function entrar(k, silencioso){
+  const err = document.getElementById("err");
+  err.classList.add("hidden");
+  try {
+    clientes = await rpc("sabores_lista_v2", { p_clave: k });
+    clave = k;
+    guardarClave(k);
+    document.getElementById("login").classList.add("hidden");
+    document.getElementById("app").classList.remove("hidden");
+    const conDni = clientes.filter(c => c.tiene_dni).length;
+    const conLink = clientes.filter(c => c.token_dni).length;
+    document.getElementById("sub").textContent = clientes.length + " clientes · " + conDni + " con DNI cargado · " + conLink + " sin DNI (reciben su link para cargarlo). Tocá \"Abrir WhatsApp\" en cada tarjeta para mandar el mensaje, uno por uno.";
+    render();
+  } catch(e) {
+    if (e.claveIncorrecta) guardarClave("");
+    if (!silencioso) {
+      err.textContent = e.claveIncorrecta ? "Clave incorrecta." : "No se pudo conectar con la base. Revisá tu conexión y probá de nuevo.";
+      err.classList.remove("hidden");
+    }
+  }
+}
+
+document.getElementById("login").addEventListener("submit", e => {
+  e.preventDefault();
+  const k = document.getElementById("clave").value.trim();
+  if (k) entrar(k, false);
+});
+
+const guardada = leerClave();
+if (guardada) entrar(guardada, true);
+</script>
+</body>
+</html>
