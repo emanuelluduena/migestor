@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Mis puntos</title>
+<style>
+  :root { --verde:#2f7d4f; --verde-claro:#e8f4ec; --texto:#1f2a24; --gris:#6b7770; --borde:#dfe6e1; --fondo:#f6f8f6; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--fondo); color:var(--texto); }
+  main { max-width:480px; margin:0 auto; padding:20px 16px 40px; }
+  header { text-align:center; margin-bottom:20px; }
+  header img { max-height:64px; margin-bottom:8px; }
+  h1 { font-size:1.35rem; margin:0; }
+  .sub { color:var(--gris); font-size:.95rem; margin-top:4px; }
+  .card { background:#fff; border:1px solid var(--borde); border-radius:14px; padding:18px; margin-bottom:16px; }
+  label { display:block; font-weight:600; margin-bottom:8px; }
+  input { width:100%; font-size:1.15rem; padding:12px 14px; border:1px solid var(--borde); border-radius:10px; }
+  input:focus { outline:2px solid var(--verde); border-color:var(--verde); }
+  button { width:100%; margin-top:12px; font-size:1.05rem; font-weight:600; padding:13px; border:0; border-radius:10px; background:var(--verde); color:#fff; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:default; }
+  .error { color:#b3261e; margin-top:12px; font-size:.95rem; }
+  .puntos { text-align:center; }
+  .puntos .hola { color:var(--gris); }
+  .puntos .num { font-size:3rem; font-weight:800; color:var(--verde); line-height:1.1; }
+  .puntos .lbl { color:var(--gris); }
+  h2 { font-size:1.05rem; margin:0 0 12px; }
+  .premio { padding:12px 0; border-top:1px solid var(--borde); }
+  .premio:first-of-type { border-top:0; padding-top:0; }
+  .premio .fila { display:flex; justify-content:space-between; gap:10px; align-items:baseline; }
+  .premio .nombre { font-weight:600; }
+  .premio .costo { color:var(--gris); white-space:nowrap; }
+  .barra { height:8px; background:var(--verde-claro); border-radius:99px; margin-top:8px; overflow:hidden; }
+  .barra > div { height:100%; background:var(--verde); border-radius:99px; }
+  .estado { font-size:.88rem; margin-top:6px; color:var(--gris); }
+  .estado.ok { color:var(--verde); font-weight:600; }
+  .aviso { text-align:center; color:var(--gris); font-size:.9rem; }
+  .link { background:none; color:var(--verde); width:auto; margin:0 auto; display:block; padding:8px; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img id="logo" alt="" hidden>
+    <h1 id="titulo">Consultá tus puntos</h1>
+    <div class="sub">Ingresá tu DNI para ver tus puntos y premios</div>
+  </header>
+
+  <section class="card" id="form-card">
+    <form id="form" autocomplete="off">
+      <label for="dni">Tu DNI</label>
+      <input id="dni" inputmode="numeric" pattern="[0-9.]*" maxlength="11" placeholder="Sin puntos ni espacios" required>
+      <button id="btn" type="submit">Ver mis puntos</button>
+      <div class="error" id="error" role="alert" hidden></div>
+    </form>
+  </section>
+
+  <section id="resultado" hidden>
+    <div class="card puntos">
+      <div class="hola" id="hola"></div>
+      <div class="num" id="puntos">0</div>
+      <div class="lbl">puntos acumulados</div>
+    </div>
+    <div class="card">
+      <h2>Premios para canjear</h2>
+      <div id="premios"></div>
+    </div>
+    <p class="aviso">Para canjear tus puntos, acercate al local o comunicate con nosotros.</p>
+    <button class="link" id="otra" type="button">Consultar otro DNI</button>
+  </section>
+</main>
+
+<script>
+const SUPABASE_URL = "https://yabschiaphpiozajnwxx.supabase.co";
+const SUPABASE_KEY = "sb_publishable_BZlDsQFy_PFTx-01ZYt7rg_FN4IqLB5";
+const NEGOCIO_ID = new URLSearchParams(location.search).get("n");
+
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => Number(n).toLocaleString("es-AR");
+const MENSAJES = {
+  documento_invalido: "Revisá el DNI: tiene que tener entre 6 y 9 números.",
+  no_encontrado: "No encontramos ese DNI en nuestro programa de puntos. Consultá en el local.",
+  demasiados_intentos: "Hubo demasiados intentos. Probá de nuevo en unos minutos.",
+};
+
+if (!NEGOCIO_ID) {
+  $("form-card").hidden = true;
+  $("titulo").textContent = "Link incompleto";
+  document.querySelector(".sub").textContent = "Pedí el link correcto en el local.";
+}
+
+function mostrarPremios(premios, puntos) {
+  const cont = $("premios");
+  cont.innerHTML = "";
+  if (!premios.length) {
+    cont.innerHTML = '<div class="estado">Pronto vamos a sumar premios para canjear.</div>';
+    return;
+  }
+  for (const p of premios) {
+    const costo = Number(p.costo_puntos);
+    const alcanza = puntos >= costo;
+    const pct = costo > 0 ? Math.min(100, Math.round((puntos / costo) * 100)) : 100;
+    const div = document.createElement("div");
+    div.className = "premio";
+    const fila = document.createElement("div");
+    fila.className = "fila";
+    const n = document.createElement("span");
+    n.className = "nombre";
+    n.textContent = p.nombre;
+    const c = document.createElement("span");
+    c.className = "costo";
+    c.textContent = fmt(costo) + " pts";
+    fila.append(n, c);
+    const barra = document.createElement("div");
+    barra.className = "barra";
+    barra.innerHTML = '<div style="width:' + pct + '%"></div>';
+    const est = document.createElement("div");
+    est.className = "estado" + (alcanza ? " ok" : "");
+    est.textContent = alcanza ? "¡Ya podés canjearlo!" : "Te faltan " + fmt(costo - puntos) + " puntos";
+    div.append(fila, barra, est);
+    cont.append(div);
+  }
+}
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const err = $("error");
+  err.hidden = true;
+  $("btn").disabled = true;
+  $("btn").textContent = "Buscando...";
+  try {
+    const r = await fetch(SUPABASE_URL + "/rest/v1/rpc/consultar_puntos_publico", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY },
+      body: JSON.stringify({ p_negocio: NEGOCIO_ID, p_documento: $("dni").value }),
+    });
+    if (!r.ok) throw new Error("http " + r.status);
+    const d = await r.json();
+    if (!d.ok) {
+      err.textContent = MENSAJES[d.error] || "No pudimos consultar. Probá de nuevo.";
+      err.hidden = false;
+      return;
+    }
+    if (d.negocio) { $("titulo").textContent = d.negocio; document.title = d.negocio + " - Mis puntos"; }
+    if (d.logo_url) { $("logo").src = d.logo_url; $("logo").hidden = false; }
+    $("hola").textContent = d.cliente ? "Hola, " + d.cliente + "!" : "Hola!";
+    $("puntos").textContent = fmt(d.puntos);
+    mostrarPremios(d.premios, Number(d.puntos));
+    $("form-card").hidden = true;
+    $("resultado").hidden = false;
+    $("dni").value = "";
+  } catch (x) {
+    err.textContent = "No pudimos conectarnos. Revisá tu internet y probá de nuevo.";
+    err.hidden = false;
+  } finally {
+    $("btn").disabled = false;
+    $("btn").textContent = "Ver mis puntos";
+  }
+});
+
+$("otra").addEventListener("click", () => {
+  $("resultado").hidden = true;
+  $("form-card").hidden = false;
+  $("dni").focus();
+});
+</script>
+</body>
+</html>
