@@ -24,6 +24,9 @@
   .ok { text-align:center; }
   .ok .check { font-size:2.5rem; }
   .nota { color:var(--gris); font-size:.85rem; margin-top:12px; }
+  .wa { display:block; text-align:center; margin-top:8px; padding:13px; border-radius:10px; background:#25d366; color:#fff; font-weight:700; text-decoration:none; font-size:1.05rem; }
+  .wa-num { text-align:center; color:var(--gris); font-size:.88rem; margin-top:6px; }
+  .contacto { margin-top:8px; }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -53,7 +56,11 @@
 
   <section class="card ok" id="invalido" hidden>
     <h1>Este link ya no sirve</h1>
-    <p class="sub">Puede que ya hayas cargado tu DNI, o que el link esté incompleto. Si tenés dudas, escribinos o pasá por el local.</p>
+    <p class="sub">Puede que ya hayas cargado tu DNI, o que el link esté incompleto. Si tenés dudas, escribinos por WhatsApp o pasá por el local.</p>
+  </section>
+  <section class="contacto">
+    <a class="wa" href="https://wa.me/5493515426971?text=Hola!%20Les%20escribo%20por%20mi%20DNI%20en%20el%20programa%20de%20puntos." target="_blank" rel="noopener">Escribinos por WhatsApp</a>
+    <div class="wa-num">351 542 6971</div>
   </section>
 </main>
 
@@ -65,7 +72,7 @@ const $ = (id) => document.getElementById(id);
 
 const MENSAJES = {
   documento_invalido: "Revisá el DNI: tiene que tener entre 6 y 9 números.",
-  no_se_pudo: "No pudimos guardar ese DNI. Escribinos o pasá por el local y lo resolvemos.",
+  no_se_pudo: "No pudimos guardar ese DNI. Escribinos por WhatsApp o pasá por el local y lo resolvemos.",
   link_invalido: "Este link ya no sirve.",
 };
 

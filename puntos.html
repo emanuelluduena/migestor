@@ -37,6 +37,9 @@
   .estado.ok { color:var(--verde); font-weight:600; }
   .aviso { text-align:center; color:var(--gris); font-size:.9rem; }
   .link { background:none; color:var(--verde); width:auto; margin:0 auto; display:block; padding:8px; }
+  .wa { display:block; text-align:center; margin-top:8px; padding:13px; border-radius:10px; background:#25d366; color:#fff; font-weight:700; text-decoration:none; font-size:1.05rem; }
+  .wa-num { text-align:center; color:var(--gris); font-size:.88rem; margin-top:6px; }
+  .contacto { margin-top:8px; }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -67,8 +70,12 @@
       <h2>Premios para canjear</h2>
       <div id="premios"></div>
     </div>
-    <p class="aviso">Para canjear tus puntos, acercate al local o comunicate con nosotros.</p>
+    <p class="aviso">Para canjear tus puntos, acercate al local o escribinos por WhatsApp.</p>
     <button class="link" id="otra" type="button">Consultar otro DNI</button>
+  </section>
+  <section class="contacto">
+    <a class="wa" href="https://wa.me/5493515426971?text=Hola!%20Les%20escribo%20por%20mi%20consulta%20de%20puntos." target="_blank" rel="noopener">Escribinos por WhatsApp</a>
+    <div class="wa-num">351 542 6971</div>
   </section>
 </main>
 
@@ -81,7 +88,7 @@ const $ = (id) => document.getElementById(id);
 const fmt = (n) => Number(n).toLocaleString("es-AR");
 const MENSAJES = {
   documento_invalido: "Revisá el DNI: tiene que tener entre 6 y 9 números.",
-  no_encontrado: "No encontramos ese DNI en nuestro programa de puntos. Consultá en el local.",
+  no_encontrado: "No encontramos ese DNI en nuestro programa de puntos. Escribinos por WhatsApp o consultá en el local.",
   demasiados_intentos: "Hubo demasiados intentos. Probá de nuevo en unos minutos.",
 };
 
