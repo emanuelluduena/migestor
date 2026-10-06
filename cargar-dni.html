@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Cargá tu DNI</title>
+<style>
+  :root { --verde:#2f7d4f; --texto:#1f2a24; --gris:#6b7770; --borde:#dfe6e1; --fondo:#f6f8f6; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--fondo); color:var(--texto); }
+  main { max-width:480px; margin:0 auto; padding:24px 16px 40px; }
+  header { text-align:center; margin-bottom:20px; }
+  header img { max-height:64px; margin-bottom:8px; }
+  h1 { font-size:1.35rem; margin:0; }
+  .sub { color:var(--gris); font-size:.95rem; margin-top:6px; }
+  .card { background:#fff; border:1px solid var(--borde); border-radius:14px; padding:18px; margin-bottom:16px; }
+  label { display:block; font-weight:600; margin-bottom:8px; }
+  input { width:100%; font-size:1.15rem; padding:12px 14px; border:1px solid var(--borde); border-radius:10px; }
+  input:focus { outline:2px solid var(--verde); border-color:var(--verde); }
+  button { width:100%; margin-top:12px; font-size:1.05rem; font-weight:600; padding:13px; border:0; border-radius:10px; background:var(--verde); color:#fff; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:default; }
+  .error { color:#b3261e; margin-top:12px; font-size:.95rem; }
+  .ok { text-align:center; }
+  .ok .check { font-size:2.5rem; }
+  .nota { color:var(--gris); font-size:.85rem; margin-top:12px; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img id="logo" alt="" hidden>
+    <h1 id="titulo">Cargá tu DNI</h1>
+    <div class="sub" id="sub">Un momento...</div>
+  </header>
+
+  <section class="card" id="form-card" hidden>
+    <form id="form" autocomplete="off">
+      <label for="dni">Tu DNI</label>
+      <input id="dni" inputmode="numeric" pattern="[0-9.]*" maxlength="11" placeholder="Sin puntos ni espacios" required>
+      <button id="btn" type="submit">Guardar mi DNI</button>
+      <div class="error" id="error" role="alert" hidden></div>
+      <div class="nota">Lo usamos solo para que puedas consultar tus puntos y premios.</div>
+    </form>
+  </section>
+
+  <section class="card ok" id="listo" hidden>
+    <div class="check">✅</div>
+    <h1>¡Listo!</h1>
+    <p class="sub">Ya guardamos tu DNI. Ahora podés consultar tus puntos y premios cuando quieras.</p>
+  </section>
+
+  <section class="card ok" id="invalido" hidden>
+    <h1>Este link ya no sirve</h1>
+    <p class="sub">Puede que ya hayas cargado tu DNI, o que el link esté incompleto. Si tenés dudas, escribinos o pasá por el local.</p>
+  </section>
+</main>
+
+<script>
+const SUPABASE_URL = "https://yabschiaphpiozajnwxx.supabase.co";
+const SUPABASE_KEY = "sb_publishable_BZlDsQFy_PFTx-01ZYt7rg_FN4IqLB5";
+const TOKEN = new URLSearchParams(location.search).get("t");
+const $ = (id) => document.getElementById(id);
+
+const MENSAJES = {
+  documento_invalido: "Revisá el DNI: tiene que tener entre 6 y 9 números.",
+  no_se_pudo: "No pudimos guardar ese DNI. Escribinos o pasá por el local y lo resolvemos.",
+  link_invalido: "Este link ya no sirve.",
+};
+
+async function rpc(nombre, params) {
+  const r = await fetch(SUPABASE_URL + "/rest/v1/rpc/" + nombre, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY },
+    body: JSON.stringify(params),
+  });
+  if (!r.ok) throw new Error("http " + r.status);
+  return r.json();
+}
+
+function mostrarInvalido() {
+  $("form-card").hidden = true;
+  $("listo").hidden = true;
+  $("invalido").hidden = false;
+  $("sub").textContent = "";
+}
+
+(async function init() {
+  if (!TOKEN) return mostrarInvalido();
+  try {
+    const d = await rpc("dni_pendiente_info", { p_token: TOKEN });
+    if (!d.ok) return mostrarInvalido();
+    if (d.negocio) { $("titulo").textContent = d.negocio; document.title = d.negocio; }
+    if (d.logo_url) { $("logo").src = d.logo_url; $("logo").hidden = false; }
+    $("sub").textContent = (d.cliente ? "Hola, " + d.cliente + "! " : "") + "Cargá tu DNI para consultar tus puntos y premios.";
+    $("form-card").hidden = false;
+  } catch (e) {
+    $("sub").textContent = "No pudimos conectarnos. Revisá tu internet y probá de nuevo.";
+  }
+})();
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const err = $("error");
+  err.hidden = true;
+  $("btn").disabled = true;
+  $("btn").textContent = "Guardando...";
+  try {
+    const d = await rpc("guardar_dni_cliente", { p_token: TOKEN, p_dni: $("dni").value });
+    if (!d.ok) {
+      if (d.error === "link_invalido") return mostrarInvalido();
+      err.textContent = MENSAJES[d.error] || "No pudimos guardar. Probá de nuevo.";
+      err.hidden = false;
+      return;
+    }
+    $("form-card").hidden = true;
+    $("sub").textContent = "";
+    $("listo").hidden = false;
+  } catch (x) {
+    err.textContent = "No pudimos conectarnos. Revisá tu internet y probá de nuevo.";
+    err.hidden = false;
+  } finally {
+    $("btn").disabled = false;
+    $("btn").textContent = "Guardar mi DNI";
+  }
+});
+</script>
+</body>
+</html>
